@@ -112,10 +112,10 @@ class WorkTypeBody(BaseModel):
 
 class JobBody(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    type_id: str
-    assignee_id: str
-    due_date: str
-    price: float = Field(ge=0)
+    type_id: Optional[str] = None
+    assignee_id: Optional[str] = None
+    due_date: Optional[str] = None
+    price: float = Field(default=0, ge=0)
     status: str = "in_attesa"
 
 
@@ -292,7 +292,7 @@ async def serialize_job(job: dict) -> dict:
         "assignee_id": str(job["assignee_id"]) if job.get("assignee_id") else None,
         "assignee_name": assignee["name"] if assignee else "Non assegnato",
         "assignee_color": assignee.get("color", "#94A3B8") if assignee else "#94A3B8",
-        "due_date": job["due_date"],
+        "due_date": job.get("due_date"),
         "price": job["price"],
         "status": job["status"],
         "archived": job.get("archived", False),
@@ -313,9 +313,9 @@ async def create_job(body: JobBody, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Stato non valido")
     doc = {
         "title": body.title,
-        "type_id": to_object_id(body.type_id),
-        "assignee_id": to_object_id(body.assignee_id),
-        "due_date": body.due_date,
+        "type_id": to_object_id(body.type_id) if body.type_id else None,
+        "assignee_id": to_object_id(body.assignee_id) if body.assignee_id else None,
+        "due_date": body.due_date or None,
         "price": body.price,
         "status": body.status,
         "archived": False,
@@ -336,9 +336,9 @@ async def update_job(job_id: str, body: JobBody, user: dict = Depends(get_curren
         {"_id": to_object_id(job_id), "archived": False},
         {"$set": {
             "title": body.title,
-            "type_id": to_object_id(body.type_id),
-            "assignee_id": to_object_id(body.assignee_id),
-            "due_date": body.due_date,
+            "type_id": to_object_id(body.type_id) if body.type_id else None,
+            "assignee_id": to_object_id(body.assignee_id) if body.assignee_id else None,
+            "due_date": body.due_date or None,
             "price": body.price,
             "status": body.status,
         }},

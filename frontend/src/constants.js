@@ -32,7 +32,7 @@ export const formatData = (d) => {
 };
 
 export const isScaduto = (job) => {
-  if (job.archived) return false;
+  if (job.archived || !job.due_date) return false;
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
   return new Date(`${job.due_date}T00:00:00`) < oggi;

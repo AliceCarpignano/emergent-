@@ -20,8 +20,8 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
   useEffect(() => {
     if (open) {
       setTitle(job?.title || "");
-      setTypeId(job?.type_id || "");
-      setAssigneeId(job?.assignee_id || "");
+      setTypeId(job?.type_id || "none");
+      setAssigneeId(job?.assignee_id || "none");
       setDueDate(job?.due_date || "");
       setPrice(job != null ? String(job.price) : "");
       setStatus(job?.status || "in_attesa");
@@ -32,7 +32,14 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { title, type_id: typeId, assignee_id: assigneeId, due_date: dueDate, price: parseFloat(price) || 0, status };
+      const payload = {
+        title,
+        type_id: typeId === "none" ? null : typeId,
+        assignee_id: assigneeId === "none" ? null : assigneeId,
+        due_date: dueDate || null,
+        price: parseFloat(price) || 0,
+        status,
+      };
       if (job) {
         await api.put(`/jobs/${job.id}`, payload);
         toast.success("Lavoro aggiornato");
@@ -71,12 +78,13 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Tipo di Lavoro</Label>
-              <Select value={typeId} onValueChange={setTypeId} required>
+              <Label>Tipo di Lavoro <span className="text-slate-400 font-normal">(opzionale)</span></Label>
+              <Select value={typeId} onValueChange={setTypeId}>
                 <SelectTrigger data-testid="modal-work-type-select">
                   <SelectValue placeholder="Seleziona tipo" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Senza tipo</SelectItem>
                   {types.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       <span className="flex items-center gap-2">
@@ -89,12 +97,13 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Membro del Team</Label>
-              <Select value={assigneeId} onValueChange={setAssigneeId} required>
+              <Label>Membro del Team <span className="text-slate-400 font-normal">(opzionale)</span></Label>
+              <Select value={assigneeId} onValueChange={setAssigneeId}>
                 <SelectTrigger data-testid="modal-work-assignee-select">
                   <SelectValue placeholder="Assegna a..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Non assegnato</SelectItem>
                   {team.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
@@ -104,18 +113,17 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="work-date">Data di Consegna</Label>
+              <Label htmlFor="work-date">Data di Consegna <span className="text-slate-400 font-normal">(opzionale)</span></Label>
               <Input
                 id="work-date"
                 type="date"
                 data-testid="modal-work-date-input"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="work-price">Prezzo Cliente (€)</Label>
+              <Label htmlFor="work-price">Prezzo Cliente (€) <span className="text-slate-400 font-normal">(opzionale)</span></Label>
               <Input
                 id="work-price"
                 type="number"
@@ -125,7 +133,6 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
-                required
               />
             </div>
           </div>
