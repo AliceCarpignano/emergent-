@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 5 (Clients & Fatturazione + membri con accesso Impostazioni/work-types) fully validated. Backend: added 6 new tests (clients CRUD/upsert-no-duplicate, delete, invoice+uninvoice full flow, invoice 404, member can invoice) and converted work-types member test to allowed CRUD. Total 36/36 passing. Frontend: verified Impostazioni tab visible for member, member can add/delete work-types, team read-only with proper note; admin flow: complete → Fattura modal opens → new client created → job appears in Fatturati with client/number/date; saved client appears in select and prefills fields (name/piva/city verified); uninvoice returns job to Da fatturare. Regression pass on dashboard/report/theme/logout.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "InvoiceModal", "issues": ["Radix DialogContent React warning: 'Missing Description or aria-describedby' — cosmetic a11y warning, add DialogDescription for full compliance"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iteration_5.xml"],
+  "action_items": [
+    "Optional a11y: add DialogDescription to InvoiceModal to remove the React aria-describedby warning."
+  ],
+  "critical_code_review_comments": [
+    "server.py POST /api/clients uses name as unique key for upsert — consider using P.IVA/codice_fiscale as more robust identity (two clients with same 'ragione sociale' but different P.IVA would collide). For MVP the current behavior matches spec.",
+    "uninvoice endpoint does NOT delete the client, only detaches from job — correct behavior (clients persist for reuse).",
+    "InvoiceModal invoice_date is auto-prefilled to today via ISO slice — good UX. No validation that date is not in future; acceptable for invoicing.",
+    "CompletedFolder computes totaleDaFatturare/totaleFatturato via filter().reduce — small O(n) duplication but fine at this scale.",
+    "work-types PUT/POST/DELETE now require get_current_user (any authenticated); team endpoints still require admin — matches spec."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "100%"},
+  "test_credentials": "Admin: tipideal@tipideal.it / Admin2026! · Member: iariamaarco@gmail.com / Admin2026!",
+  "seed_data_creation": "Tests create/complete TEST_ jobs and TEST_ clients per-scenario and always teardown via DELETE at the end of each test (also verified with a bulk cleanup pass at start of second UI script).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend 36/36 green including new Clients & Invoicing tests. UI flow (member permissions + invoicing end-to-end incl. client prefill from select + uninvoice) verified. All TEST_ leftovers cleaned. Only nit: Radix DialogContent aria-describedby warning in browser console.",
+  "rca of the issue": "N/A"
+}

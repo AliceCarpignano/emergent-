@@ -41,6 +41,8 @@
 - Creazione lavoro parziale: tipo, membro, data consegna e prezzo opzionali (JobBody Optional), compilabili in seguito via modifica
 - Admin sostituito (15/06/2026): admin = tipideal@tipideal.it / Admin2026!; iariamaarco@gmail.com demotato a member "Marco" (migrazione in seed_data)
 - Palette tipi di lavoro estesa a 12 colori (aggiunti arancione, ciano, lime, ardesia)
+- Impostazioni visibili a tutti i membri (15/06/2026): tab Impostazioni per ogni utente; gestione tipi di lavoro aperta a tutti (backend), gestione membri resta admin-only (UI read-only per membri)
+- Fatturazione (15/06/2026): Completati diviso in "Da fatturare" e "Fatturati"; InvoiceModal con dati fatturazione per lavoro (cliente, P.IVA, CF, indirizzo, PEC/SDI, numero e data fattura); clienti salvati in collection dedicata e riutilizzabili (upsert per nome); endpoint /api/clients + /api/jobs/{id}/invoice|uninvoice
 
 ## Backlog
 - P0: nessuno

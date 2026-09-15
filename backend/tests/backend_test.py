@@ -7,8 +7,8 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://team-task-hub-112.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN = {"email": "iariamaarco@gmail.com", "password": "Admin2026!"}
-MEMBER = {"email": "giulia.bianchi@team.it", "password": "Team2026!"}
+ADMIN = {"email": "tipideal@tipideal.it", "password": "Admin2026!"}
+MEMBER = {"email": "iariamaarco@gmail.com", "password": "Admin2026!"}
 
 
 def _session(creds=None):
@@ -160,9 +160,17 @@ class TestWorkTypes:
         r3 = admin_session.delete(f"{API}/work-types/{tid}")
         assert r3.status_code == 200
 
-    def test_member_forbidden(self, member_session):
-        r = member_session.post(f"{API}/work-types", json={"name": "X", "color": "#000"})
-        assert r.status_code == 403
+    def test_member_allowed(self, member_session):
+        # Iteration 5: members can now CRUD work-types
+        name = f"TEST_Tipo_M_{int(time.time())}"
+        r = member_session.post(f"{API}/work-types", json={"name": name, "color": "#abcdef"})
+        assert r.status_code == 200, r.text
+        tid = r.json()["id"]
+        # update
+        r2 = member_session.put(f"{API}/work-types/{tid}", json={"name": name + "_u", "color": "#111111"})
+        assert r2.status_code in (200,)
+        r3 = member_session.delete(f"{API}/work-types/{tid}")
+        assert r3.status_code == 200
 
 
 # ---- Team ----
@@ -374,3 +382,143 @@ class TestJobsExtra:
             "due_date": "2026-12-31", "price": 100, "status": "invalido"
         })
         assert r.status_code == 400
+
+
+# ---- Iteration 5: Clients & Invoicing ----
+class TestClientsAndInvoicing:
+    def test_list_clients(self, admin_session):
+        r = admin_session.get(f"{API}/clients")
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_upsert_client_creates_and_updates_no_duplicate(self, admin_session):
+        name = f"TEST_Client_{int(time.time())}"
+        payload = {"name": name, "piva": "12345678901", "citta": "Roma"}
+        r = admin_session.post(f"{API}/clients", json=payload)
+        assert r.status_code == 200, r.text
+        cid = r.json()["id"]
+        assert r.json()["name"] == name
+        assert r.json()["piva"] == "12345678901"
+        try:
+            # upsert same name -> updates, no duplicate
+            r2 = admin_session.post(f"{API}/clients", json={"name": name, "piva": "99999999999", "citta": "Milano"})
+            assert r2.status_code == 200
+            assert r2.json()["piva"] == "99999999999"
+            assert r2.json()["citta"] == "Milano"
+            # verify only one client with this name
+            lst = admin_session.get(f"{API}/clients").json()
+            same = [c for c in lst if c["name"] == name]
+            assert len(same) == 1
+            assert same[0]["id"] == cid
+        finally:
+            admin_session.delete(f"{API}/clients/{cid}")
+
+    def test_delete_client(self, admin_session):
+        name = f"TEST_Client_del_{int(time.time())}"
+        r = admin_session.post(f"{API}/clients", json={"name": name})
+        cid = r.json()["id"]
+        r2 = admin_session.delete(f"{API}/clients/{cid}")
+        assert r2.status_code == 200
+        # verify removed
+        lst = admin_session.get(f"{API}/clients").json()
+        assert not any(c["id"] == cid for c in lst)
+
+    def test_invoice_and_uninvoice_flow(self, admin_session):
+        # create a job, complete it, invoice it, verify, uninvoice
+        types = admin_session.get(f"{API}/work-types").json()
+        team = admin_session.get(f"{API}/team").json()
+        job_payload = {"title": f"TEST_JobInvoice_{int(time.time())}", "type_id": types[0]["id"],
+                       "assignee_id": team[0]["id"] if team else None, "due_date": "2026-06-30", "price": 800.0,
+                       "status": "in_attesa"}
+        jr = admin_session.post(f"{API}/jobs", json=job_payload)
+        assert jr.status_code == 200, jr.text
+        jid = jr.json()["id"]
+        client_name = f"TEST_ClientInv_{int(time.time())}"
+        cid_created = None
+        try:
+            # complete/archive
+            admin_session.post(f"{API}/jobs/{jid}/complete")
+            # invoice
+            inv_payload = {
+                "client": {"name": client_name, "piva": "01234567890", "codice_fiscale": "RSSMRA80A01H501Z",
+                           "indirizzo": "Via Roma 1", "cap": "00100", "citta": "Roma", "provincia": "RM",
+                           "pec": "test@pec.it", "codice_sdi": "ABCDE12"},
+                "invoice_number": "2026/0001",
+                "invoice_date": "2026-01-15",
+            }
+            ir = admin_session.post(f"{API}/jobs/{jid}/invoice", json=inv_payload)
+            assert ir.status_code == 200, ir.text
+            body = ir.json()
+            assert "client_id" in body
+            cid_created = body["client_id"]
+
+            # verify job now shows invoiced fields in archived list
+            arch = admin_session.get(f"{API}/jobs?archived=true").json()
+            found = next((j for j in arch if j["id"] == jid), None)
+            assert found is not None
+            assert found["invoiced"] is True
+            assert found["invoice_number"] == "2026/0001"
+            assert found["invoice_date"] == "2026-01-15"
+            assert found["client_name"] == client_name
+            assert found.get("client_id") is not None
+
+            # verify client persisted with data
+            clients = admin_session.get(f"{API}/clients").json()
+            c = next((c for c in clients if c["name"] == client_name), None)
+            assert c is not None
+            assert c["piva"] == "01234567890"
+            assert c["citta"] == "Roma"
+
+            # uninvoice
+            ur = admin_session.post(f"{API}/jobs/{jid}/uninvoice")
+            assert ur.status_code == 200
+            arch2 = admin_session.get(f"{API}/jobs?archived=true").json()
+            found2 = next((j for j in arch2 if j["id"] == jid), None)
+            assert found2 is not None
+            assert found2["invoiced"] is False
+            assert found2["invoice_number"] is None
+            assert found2["invoice_date"] is None
+            assert found2.get("client_name") in (None, "")
+
+            # re-invoice same client (upsert): should reuse client, no dup
+            ir2 = admin_session.post(f"{API}/jobs/{jid}/invoice", json={**inv_payload, "invoice_number": "2026/0002"})
+            assert ir2.status_code == 200
+            clients2 = admin_session.get(f"{API}/clients").json()
+            same = [c for c in clients2 if c["name"] == client_name]
+            assert len(same) == 1
+        finally:
+            admin_session.post(f"{API}/jobs/{jid}/uninvoice")
+            admin_session.delete(f"{API}/jobs/{jid}")
+            # cleanup client
+            clients = admin_session.get(f"{API}/clients").json()
+            for c in clients:
+                if c["name"] == client_name:
+                    admin_session.delete(f"{API}/clients/{c['id']}")
+
+    def test_invoice_nonexistent_job_404(self, admin_session):
+        r = admin_session.post(f"{API}/jobs/507f1f77bcf86cd799439011/invoice", json={
+            "client": {"name": "TEST_x"}, "invoice_number": "N", "invoice_date": "2026-01-01"
+        })
+        assert r.status_code == 404
+
+    def test_member_can_invoice(self, member_session, admin_session):
+        # member should be able to invoice (endpoint uses get_current_user, not admin-only)
+        types = admin_session.get(f"{API}/work-types").json()
+        jr = admin_session.post(f"{API}/jobs", json={"title": f"TEST_MemInv_{int(time.time())}",
+                                                     "type_id": types[0]["id"], "price": 100})
+        jid = jr.json()["id"]
+        client_name = f"TEST_MemClient_{int(time.time())}"
+        try:
+            admin_session.post(f"{API}/jobs/{jid}/complete")
+            ir = member_session.post(f"{API}/jobs/{jid}/invoice", json={
+                "client": {"name": client_name, "piva": "11122233344"},
+                "invoice_number": "M-001", "invoice_date": "2026-02-01"
+            })
+            assert ir.status_code == 200, ir.text
+        finally:
+            admin_session.post(f"{API}/jobs/{jid}/uninvoice")
+            admin_session.delete(f"{API}/jobs/{jid}")
+            clients = admin_session.get(f"{API}/clients").json()
+            for c in clients:
+                if c["name"] == client_name:
+                    admin_session.delete(f"{API}/clients/{c['id']}")

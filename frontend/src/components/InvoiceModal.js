@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/api";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,9 @@ export function InvoiceModal({ open, onClose, job, onSaved }) {
             <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             Dati di Fatturazione
           </DialogTitle>
+          <DialogDescription>
+            Inserisci i dati del cliente e della fattura per il lavoro selezionato.
+          </DialogDescription>
         </DialogHeader>
 
         {job && (
