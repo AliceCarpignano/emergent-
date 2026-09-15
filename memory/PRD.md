@@ -31,8 +31,9 @@
 - Auth completa (registrazione, login, logout, /me), seed admin iariamaarco@gmail.com
 - API: /api/jobs (CRUD, status patch, complete/restore), /api/work-types, /api/team, /api/stats
 - Frontend: LoginPage, NavigationHeader (tab + tema), StatsDashboard, GeneralWorkTable (filtri/ricerca/sort), CompletedFolder, ListManager, WorkFormModal
-- Seed demo: 5 tipi lavoro, 3 member, 3 lavori attivi, 2 completati (3100 €)
+- Seed demo: 5 tipi lavoro, 3 member, 3 lavori attivi, 2 completati
 - Test: backend 17/17 pytest, frontend Playwright — tutto verde (iteration_1)
+- Dashboard: sezione guadagni aggregata per tipologia di lavoro (stats.per_tipo) invece che per persona
 
 ## Backlog
 - P0: nessuno

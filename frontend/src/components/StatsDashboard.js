@@ -22,7 +22,7 @@ function StatCard({ testid, label, value, sub, icon: Icon, accent }) {
 
 export function StatsDashboard({ stats }) {
   if (!stats) return null;
-  const maxTotale = Math.max(...stats.per_persona.map((p) => p.totale), 1);
+  const maxTotale = Math.max(...stats.per_tipo.map((p) => p.totale), 1);
 
   return (
     <div className="space-y-8" data-testid="stats-dashboard">
@@ -64,23 +64,18 @@ export function StatsDashboard({ stats }) {
       <div className="rounded-xl border border-slate-200/80 bg-white shadow-sm dark:bg-slate-900/90 dark:border-slate-800 p-6">
         <div className="flex items-center gap-2 mb-6">
           <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Guadagno per Persona</h3>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Guadagno per Tipologia di Lavoro</h3>
           <span className="text-sm text-slate-500 dark:text-slate-400">(lavori completati)</span>
         </div>
-        {stats.per_persona.length === 0 ? (
+        {stats.per_tipo.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Nessun lavoro completato ancora.</p>
         ) : (
-          <div className="space-y-4" data-testid="stat-guadagno-persona-list">
-            {stats.per_persona.map((p) => (
-              <div key={p.user_id} className="space-y-1.5" data-testid={`stat-guadagno-${p.user_id}`}>
+          <div className="space-y-4" data-testid="stat-guadagno-tipo-list">
+            {stats.per_tipo.map((p) => (
+              <div key={p.type_id} className="space-y-1.5" data-testid={`stat-guadagno-tipo-${p.type_id}`}>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                      style={{ backgroundColor: p.color }}
-                    >
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
                     <span className="font-medium text-slate-700 dark:text-slate-300">{p.name}</span>
                     <span className="text-slate-400 dark:text-slate-500">· {p.count} lavori</span>
                   </div>

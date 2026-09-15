@@ -376,26 +376,26 @@ async def get_stats(user: dict = Depends(get_current_user)):
     active = await db.jobs.find({"archived": False}).to_list(1000)
     completed = await db.jobs.find({"archived": True}).to_list(1000)
     fatturato = sum(j["price"] for j in completed)
-    per_persona_map = {}
+    per_tipo_map = {}
     for j in completed:
-        key = str(j["assignee_id"]) if j.get("assignee_id") else "none"
-        entry = per_persona_map.setdefault(key, {"totale": 0, "count": 0})
+        key = str(j["type_id"]) if j.get("type_id") else "none"
+        entry = per_tipo_map.setdefault(key, {"totale": 0, "count": 0})
         entry["totale"] += j["price"]
         entry["count"] += 1
-    per_persona = []
-    for uid, entry in per_persona_map.items():
-        name = "Non assegnato"
+    per_tipo = []
+    for tid, entry in per_tipo_map.items():
+        name = "Senza tipo"
         color = "#94A3B8"
-        if uid != "none":
-            u = await db.users.find_one({"_id": ObjectId(uid)})
-            if u:
-                name = u["name"]
-                color = u.get("color", "#94A3B8")
-        per_persona.append({"user_id": uid, "name": name, "color": color, "totale": entry["totale"], "count": entry["count"]})
-    per_persona.sort(key=lambda x: x["totale"], reverse=True)
+        if tid != "none":
+            t = await db.work_types.find_one({"_id": ObjectId(tid)})
+            if t:
+                name = t["name"]
+                color = t.get("color", "#94A3B8")
+        per_tipo.append({"type_id": tid, "name": name, "color": color, "totale": entry["totale"], "count": entry["count"]})
+    per_tipo.sort(key=lambda x: x["totale"], reverse=True)
     return {
         "fatturato_completati": fatturato,
-        "per_persona": per_persona,
+        "per_tipo": per_tipo,
         "lavori_in_corso": sum(1 for j in active if j["status"] == "in_corso"),
         "lavori_in_attesa": sum(1 for j in active if j["status"] == "in_attesa"),
         "lavori_in_revisione": sum(1 for j in active if j["status"] == "in_revisione"),
