@@ -1,0 +1,196 @@
+"""Backend API tests for team job management app."""
+import os
+import time
+import pytest
+import requests
+
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://team-task-hub-112.preview.emergentagent.com").rstrip("/")
+API = f"{BASE_URL}/api"
+
+ADMIN = {"email": "iariamaarco@gmail.com", "password": "Admin2026!"}
+MEMBER = {"email": "giulia.bianchi@team.it", "password": "Team2026!"}
+
+
+def _session(creds=None):
+    s = requests.Session()
+    if creds:
+        r = s.post(f"{API}/auth/login", json=creds, timeout=15)
+        assert r.status_code == 200, f"Login failed: {r.status_code} {r.text}"
+    return s
+
+
+@pytest.fixture(scope="module")
+def admin_session():
+    return _session(ADMIN)
+
+
+@pytest.fixture(scope="module")
+def member_session():
+    return _session(MEMBER)
+
+
+# ---- Auth ----
+class TestAuth:
+    def test_login_admin(self):
+        s = requests.Session()
+        r = s.post(f"{API}/auth/login", json=ADMIN)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["email"] == ADMIN["email"]
+        assert data["role"] == "admin"
+        assert "access_token" in s.cookies.get_dict()
+
+    def test_login_bad_password(self):
+        r = requests.post(f"{API}/auth/login", json={"email": ADMIN["email"], "password": "wrong"})
+        assert r.status_code in (401, 429)
+
+    def test_me(self, admin_session):
+        r = admin_session.get(f"{API}/auth/me")
+        assert r.status_code == 200
+        assert r.json()["role"] == "admin"
+
+    def test_me_unauth(self):
+        r = requests.get(f"{API}/auth/me")
+        assert r.status_code == 401
+
+    def test_register_and_login(self):
+        email = f"test.nuovo{int(time.time())}@example.com"
+        s = requests.Session()
+        r = s.post(f"{API}/auth/register", json={"name": "Test User", "email": email, "password": "Passw0rd!"})
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["email"] == email
+        assert data["role"] == "member"
+        # login
+        s2 = requests.Session()
+        r2 = s2.post(f"{API}/auth/login", json={"email": email, "password": "Passw0rd!"})
+        assert r2.status_code == 200
+
+    def test_logout(self, admin_session):
+        s = _session(ADMIN)
+        r = s.post(f"{API}/auth/logout")
+        assert r.status_code == 200
+
+
+# ---- Stats ----
+class TestStats:
+    def test_stats(self, admin_session):
+        r = admin_session.get(f"{API}/stats")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["fatturato_completati"] == 3100
+        assert data["completati_totali"] == 2
+        assert isinstance(data["per_persona"], list)
+        assert data["lavori_attivi_totali"] >= 3
+
+
+# ---- Work types ----
+class TestWorkTypes:
+    def test_list(self, admin_session):
+        r = admin_session.get(f"{API}/work-types")
+        assert r.status_code == 200
+        assert len(r.json()) >= 5
+
+    def test_admin_crud(self, admin_session):
+        name = f"TEST_Tipo_{int(time.time())}"
+        r = admin_session.post(f"{API}/work-types", json={"name": name, "color": "#123456"})
+        assert r.status_code == 200
+        tid = r.json()["id"]
+        # verify via list
+        r2 = admin_session.get(f"{API}/work-types")
+        assert any(t["id"] == tid for t in r2.json())
+        # delete
+        r3 = admin_session.delete(f"{API}/work-types/{tid}")
+        assert r3.status_code == 200
+
+    def test_member_forbidden(self, member_session):
+        r = member_session.post(f"{API}/work-types", json={"name": "X", "color": "#000"})
+        assert r.status_code == 403
+
+
+# ---- Team ----
+class TestTeam:
+    def test_list(self, admin_session):
+        r = admin_session.get(f"{API}/team")
+        assert r.status_code == 200
+        assert len(r.json()) >= 4
+
+    def test_admin_create_delete(self, admin_session):
+        email = f"test.member{int(time.time())}@example.com"
+        r = admin_session.post(f"{API}/team", json={"name": "Test Membro", "email": email, "password": "Passw0rd!"})
+        assert r.status_code == 200
+        mid = r.json()["id"]
+        r2 = admin_session.delete(f"{API}/team/{mid}")
+        assert r2.status_code == 200
+
+    def test_member_forbidden(self, member_session):
+        r = member_session.post(f"{API}/team", json={"name": "X", "email": "x@y.z", "password": "Passw0rd!"})
+        assert r.status_code == 403
+
+
+# ---- Jobs ----
+class TestJobs:
+    def test_list_active(self, admin_session):
+        r = admin_session.get(f"{API}/jobs")
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_list_archived(self, admin_session):
+        r = admin_session.get(f"{API}/jobs?archived=true")
+        assert r.status_code == 200
+        assert len(r.json()) >= 2
+
+    def test_job_full_flow(self, admin_session):
+        types = admin_session.get(f"{API}/work-types").json()
+        team = admin_session.get(f"{API}/team").json()
+        payload = {
+            "title": "TEST_Lavoro_flow",
+            "type_id": types[0]["id"],
+            "assignee_id": team[0]["id"],
+            "due_date": "2026-12-31",
+            "price": 500.0,
+            "status": "in_attesa",
+        }
+        r = admin_session.post(f"{API}/jobs", json=payload)
+        assert r.status_code == 200, r.text
+        job = r.json()
+        jid = job["id"]
+        assert job["title"] == payload["title"]
+        assert job["price"] == 500.0
+
+        # update
+        payload["title"] = "TEST_Lavoro_updated"
+        payload["status"] = "in_corso"
+        r2 = admin_session.put(f"{API}/jobs/{jid}", json=payload)
+        assert r2.status_code == 200
+        assert r2.json()["title"] == "TEST_Lavoro_updated"
+        assert r2.json()["status"] == "in_corso"
+
+        # patch status
+        r3 = admin_session.patch(f"{API}/jobs/{jid}/status", json={"status": "in_revisione"})
+        assert r3.status_code == 200
+
+        # complete (archive)
+        r4 = admin_session.post(f"{API}/jobs/{jid}/complete")
+        assert r4.status_code == 200
+        active = admin_session.get(f"{API}/jobs").json()
+        assert not any(j["id"] == jid for j in active)
+        archived = admin_session.get(f"{API}/jobs?archived=true").json()
+        assert any(j["id"] == jid for j in archived)
+
+        # restore
+        r5 = admin_session.post(f"{API}/jobs/{jid}/restore")
+        assert r5.status_code == 200
+
+        # delete
+        r6 = admin_session.delete(f"{API}/jobs/{jid}")
+        assert r6.status_code == 200
+
+    def test_invalid_status(self, admin_session):
+        types = admin_session.get(f"{API}/work-types").json()
+        team = admin_session.get(f"{API}/team").json()
+        r = admin_session.post(f"{API}/jobs", json={
+            "title": "TEST_bad", "type_id": types[0]["id"], "assignee_id": team[0]["id"],
+            "due_date": "2026-12-31", "price": 100, "status": "invalido"
+        })
+        assert r.status_code == 400

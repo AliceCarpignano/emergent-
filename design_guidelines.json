@@ -1,0 +1,199 @@
+{
+  "app_name": "Gestione Lavori Team",
+  "app_type": "dashboard / saas_app",
+  "language": "it",
+  "design_archetype": "Swiss High-Contrast Precision & Italian Atelier Warmth",
+  "persona_and_philosophy": {
+    "identity": "E1 Anti-AI Designer",
+    "core_principles": [
+      "Fusion over Imitation: Swiss grid precision meets Italian studio craftsmanship",
+      "Emotion First: Purposeful clarity, tangible status tracking, trustworthy financial feedback",
+      "Content is King: Italian editorial typography hierarchy with high data legibility",
+      "Contrast & Negative Space: Clear row division, high contrast badges, explicit focus states"
+    ]
+  },
+  "typography": {
+    "font_family_headings": "Outfit, Plus Jakarta Sans, sans-serif",
+    "font_family_body": "Plus Jakarta Sans, system-ui, sans-serif",
+    "font_family_mono": "JetBrains Mono, IBM Plex Mono, monospace",
+    "headline_styles": {
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100",
+      "h3": "text-xl sm:text-2xl font-semibold text-slate-800 dark:text-slate-200",
+      "h4": "text-lg font-medium text-slate-800 dark:text-slate-200",
+      "overline": "text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+    },
+    "body_styles": {
+      "lead": "text-lg text-slate-600 dark:text-slate-300 leading-relaxed",
+      "base": "text-base text-slate-700 dark:text-slate-300 leading-normal",
+      "sm": "text-sm text-slate-600 dark:text-slate-400",
+      "xs": "text-xs text-slate-500 dark:text-slate-400"
+    },
+    "numeric_finance_style": "font-mono font-semibold tracking-tight text-slate-900 dark:text-slate-100"
+  },
+  "colors": {
+    "mode": "light_and_dark_supported",
+    "background_light": "bg-slate-50",
+    "background_dark": "dark:bg-slate-950",
+    "card_light": "bg-white border-slate-200/80 shadow-sm",
+    "card_dark": "dark:bg-slate-900/90 dark:border-slate-800 dark:shadow-none",
+    "primary": {
+      "default": "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-600",
+      "hex": "#4F46E5",
+      "foreground": "#FFFFFF"
+    },
+    "secondary": {
+      "default": "bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+      "hex": "#F1F5F9"
+    },
+    "status_badges": {
+      "in_attesa": "bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
+      "in_corso": "bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50",
+      "in_revisione": "bg-purple-50 text-purple-700 border-purple-200/60 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50",
+      "confezionato": "bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
+    },
+    "forbidden_colors": [
+      "#1B93A4 (teal green forbidden for dashboards)",
+      "#7351B7 (forbidden purple AI color)"
+    ]
+  },
+  "spacing_and_layout": {
+    "page_container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8",
+    "header_spacing": "mb-6 pb-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4",
+    "bento_grid_stats": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6",
+    "table_container": "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm",
+    "table_padding": "p-4 sm:p-6",
+    "modal_padding": "p-6 sm:p-8 space-y-6"
+  },
+  "italian_ui_lexicon": {
+    "nav_items": {
+      "dashboard": "Dashboard & Statistiche",
+      "tabella_lavori": "Tabella Generale Lavori",
+      "completati": "Archivio Completati",
+      "gestione_liste": "Impostazioni Liste & Team",
+      "logout": "Disconnetti"
+    },
+    "stat_cards": {
+      "fatturato_totale": "Fatturato Lavori Completati",
+      "guadagno_persona": "Guadagno per Persona",
+      "lavori_attivi": "Lavori In Corso",
+      "lavori_in_attesa": "Lavori In Attesa di Avvio"
+    },
+    "table_headers": {
+      "titolo_lavoro": "Descrizione / Titolo",
+      "tipo_lavoro": "Tipo di Lavoro",
+      "assegnatario": "Membro Team",
+      "data_consegna": "Data Consegna",
+      "prezzo_cliente": "Prezzo Cliente (€)",
+      "avanzamento": "Stato Avanzamento",
+      "azioni": "Azioni / Confeziona"
+    },
+    "status_labels": {
+      "in_attesa": "In Attesa",
+      "in_corso": "In Corso",
+      "in_revisione": "In Revisione",
+      "confezionato": "Confezionato (Completato)"
+    },
+    "actions": {
+      "crea_lavoro": "Nuovo Lavoro",
+      "sposta_completati": "Sposta in Completati",
+      "filtra_persona": "Filtra per Persona",
+      "filtra_stato": "Filtra per Stato",
+      "cerca_lavoro": "Cerca lavoro...",
+      "modifica": "Modifica",
+      "elimina": "Elimina",
+      "salva": "Salva Modifiche",
+      "aggiungi_tipo": "Aggiungi Tipo Lavoro",
+      "aggiungi_membro": "Aggiungi Membro Team"
+    }
+  },
+  "component_structure": {
+    "app_wrapper": "src/App.js",
+    "components": [
+      {
+        "name": "NavigationHeader",
+        "path": "src/components/NavigationHeader.js",
+        "description": "Sticky top bar with branding, tab switches, dark/light theme toggle, current team member profile"
+      },
+      {
+        "name": "StatsDashboard",
+        "path": "src/components/StatsDashboard.js",
+        "description": "KPI grid displaying total fatturato completati, per-person earning breakdown (charts/progress bars), active workload summary"
+      },
+      {
+        "name": "GeneralWorkTable",
+        "path": "src/components/GeneralWorkTable.js",
+        "description": "Interactive data table with filter toolbar (by team member and by status), search input, sorting by date/price, and inline status dropdowns"
+      },
+      {
+        "name": "CompletedFolder",
+        "path": "src/components/CompletedFolder.js",
+        "description": "Archived 'Cartella Completati' view displaying all confezionati jobs with total archived value, date completed, and restore option"
+      },
+      {
+        "name": "ListManager",
+        "path": "src/components/ListManager.js",
+        "description": "Settings view to add/edit/delete job categories ('Tipi di Lavoro') and team members ('Membri del Team') with color badges"
+      },
+      {
+        "name": "WorkFormModal",
+        "path": "src/components/WorkFormModal.js",
+        "description": "Modal dialog to create or edit a job order with type selection, client price input, due date calendar picker, assignee select, and progress selector"
+      },
+      {
+        "name": "AuthModal",
+        "path": "src/components/AuthModal.js",
+        "description": "Login / Sign up view with support for team account switching"
+      }
+    ]
+  },
+  "media_and_images": {
+    "avatars": [
+      "https://images.unsplash.com/photo-1574856049959-d3134a3e592f?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1660796334912-8ce8e9c2cff0?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1611523794717-4d1f87dabf3b?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1606462471470-e62753e2cfaf?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ]
+  },
+  "testing_and_data_ids": {
+    "rule": "Every interactive button, input, select, tab, modal, and key numeric display MUST have a unique role-based data-testid in kebab-case.",
+    "required_test_ids": [
+      "data-testid='nav-dashboard-tab'",
+      "data-testid='nav-table-tab'",
+      "data-testid='nav-completed-tab'",
+      "data-testid='nav-settings-tab'",
+      "data-testid='theme-toggle-button'",
+      "data-testid='stat-fatturato-totale'",
+      "data-testid='stat-guadagno-persona-list'",
+      "data-testid='filter-assignee-select'",
+      "data-testid='filter-status-select'",
+      "data-testid='search-work-input'",
+      "data-testid='add-work-button'",
+      "data-testid='work-table-row'",
+      "data-testid='work-type-badge'",
+      "data-testid='work-status-dropdown'",
+      "data-testid='mark-completed-button'",
+      "data-testid='work-price-display'",
+      "data-testid='work-due-date-display'",
+      "data-testid='modal-work-submit-button'",
+      "data-testid='modal-work-title-input'",
+      "data-testid='modal-work-price-input'",
+      "data-testid='modal-work-date-input'",
+      "data-testid='modal-work-assignee-select'",
+      "data-testid='modal-work-type-select'",
+      "data-testid='list-manager-add-type-input'",
+      "data-testid='list-manager-add-member-input'",
+      "data-testid='login-submit-button'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Ensure all user-facing text is in Italian ('Italiano').",
+    "Do NOT use TypeScript .tsx extension in frontend imports or components; stick strictly to React JavaScript (.js / .jsx).",
+    "Use Lucide-React icons for UI indicators (e.g. CheckCircle2, FolderCheck, Users, Euro, Calendar, Plus, Filter, Search, Moon, Sun).",
+    "Use Shadcn UI components provided in src/components/ui/ (Dialog, Table, Select, Badge, Button, Input, Progress, Tabs, Card, DropdownMenu, Sonner Toasts).",
+    "Never use generic Inter font for main headers. Pair Outfit/Plus Jakarta Sans for headings with JetBrains Mono for monetary values.",
+    "Ensure dark mode support with slate-950 background and slate-900 cards.",
+    "Verify that every interactive element includes its corresponding data-testid attribute.",
+    "Provide seed data in Italian with realistic team members (e.g., Marco Rossi, Giulia Bianchi, Alessandro Serra, Sofia Conti), job types (e.g., Grafica, Sviluppo Web, Contabilità, Confezionamento, Consulenza), realistic client prices, and due dates."
+  ]
+}
