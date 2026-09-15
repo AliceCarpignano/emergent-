@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 6 fully green. Added 10 new backend tests (PUT /api/team ×4: name/email/pwd change + login, keep-old-password, dup email 400, member forbidden 403; PUT /api/work-types regression ×1; Weekly reports ×1 combined: generate + list + Excel structure (3 sheets, PieChart present, Fatturazione headers) + 404 + second-generate 400; Cron auth ×3: no-auth 401, wrong secret 401, correct secret + X-Webhook-Id → 200 accepted). Total 45/45 backend passing. Frontend verified: (a) header shows admin name 'Tipografia'; (b) Impostazioni — 10 tipo edit buttons and 6+ member edit buttons; inline edit of a work-type name persists then reverts cleanly; inline edit of a member name+password persists and appears in list; (c) Dashboard 'Report Settimanali' section renders with 'Archivia Settimana' button — end-to-end: seeded TEST_ job → complete → invoice via API-in-page, clicked Archivia, new weekly-report-row appeared with periodo/lavori/entrate/fatturato and per-tipo chip, success toast 'Report settimanale generato e lavori archiviati' visible, Excel button downloaded a valid .xlsx (8040 bytes, correct filename report_settimana_YYYY-MM-DD.xlsx). Excel structure validated via openpyxl (sheets Lavori/Riepilogo Tipologie/Fatturazione; PieChart present in Riepilogo; Fatturazione header row matches expected 13 columns). Cron endpoint tested at API level (curl-equivalent) with real WEBHOOK_CRON_SECRET from /app/backend/.env. All TEST_ data (jobs/clients/members/weekly_reports) cleaned up via API/pymongo.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iteration_6.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py POST /api/cron/weekly-archive correctly acks with 200 immediately and enqueues via BackgroundTasks + idempotency via X-Webhook-Id in db.cron_runs — matches Emergent cron rules.",
+    "download_weekly_report_excel: openpyxl imported lazily inside handler — good (avoids startup cost when no reports). PieChart references Riepilogo Tipologie range so Excel/LibreOffice will auto-update the chart when totals are edited (native chart, spec met).",
+    "update_member: rejects duplicate email via {'_id': {'$ne': target['_id']}} — correct. Password only rehashed if body.password truthy — matches 'password opzionale' spec.",
+    "create_weekly_report: filters archived + weekly_archived != True and marks jobs after insertion — properly idempotent for manual re-runs (second call returns None → 400 as expected).",
+    "Cron auth uses secrets.compare_digest — constant-time comparison, good.",
+    "Minor: reports list endpoint has no delete route; test cleanup relies on direct pymongo access. If exposed to a UI admin action later, add DELETE /api/weekly-reports/{id} (admin only)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (45/45)", "frontend": "100%"},
+  "test_credentials": "Admin: tipideal@tipideal.it / Admin2026! (name: Tipografia) · Member: iariamaarco@gmail.com / Admin2026!",
+  "seed_data_creation": "Per-test TEST_ jobs, clients, members created and torn down via API. One weekly_report generated during UI test was cleaned via pymongo (no DELETE endpoint exists). The unrelated pre-existing weekly_report (from real data 'adesivi simon' etc.) left untouched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend 45/45 green including new suites TestTeamUpdate, TestWorkTypesUpdate, TestWeeklyReports, TestCronAuth. Excel structure asserted via openpyxl (chart + sheet names + Fatturazione headers). Cron secret read from /app/backend/.env at test time. Frontend WeeklyReports + inline edit of tipi/membri verified. Note: no DELETE endpoint for weekly-reports — if UI later needs it, add admin-only endpoint. No lockout issues encountered.",
+  "rca of the issue": "N/A — all requested behaviors pass."
+}

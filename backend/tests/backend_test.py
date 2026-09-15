@@ -522,3 +522,221 @@ class TestClientsAndInvoicing:
             for c in clients:
                 if c["name"] == client_name:
                     admin_session.delete(f"{API}/clients/{c['id']}")
+
+
+
+# ---- Team member update (PUT /api/team/{id}) ----
+class TestTeamUpdate:
+    def test_update_member_name_email_and_password(self, admin_session):
+        # create temp member
+        email = f"test.upd{int(time.time())}@example.com"
+        r = admin_session.post(f"{API}/team", json={"name": "TEST_Upd", "email": email, "password": "Passw0rd!"})
+        assert r.status_code == 200, r.text
+        mid = r.json()["id"]
+        try:
+            new_email = f"test.upd2{int(time.time())}@example.com"
+            new_pwd = "NewPassw0rd!"
+            u = admin_session.put(f"{API}/team/{mid}", json={"name": "TEST_UpdRenamed", "email": new_email, "password": new_pwd})
+            assert u.status_code == 200, u.text
+            data = u.json()
+            assert data["name"] == "TEST_UpdRenamed"
+            assert data["email"] == new_email
+            # verify new password works
+            s2 = requests.Session()
+            lr = s2.post(f"{API}/auth/login", json={"email": new_email, "password": new_pwd})
+            assert lr.status_code == 200, lr.text
+        finally:
+            admin_session.delete(f"{API}/team/{mid}")
+
+    def test_update_member_without_password_keeps_old(self, admin_session):
+        email = f"test.keep{int(time.time())}@example.com"
+        r = admin_session.post(f"{API}/team", json={"name": "TEST_Keep", "email": email, "password": "OldPass1!"})
+        assert r.status_code == 200
+        mid = r.json()["id"]
+        try:
+            u = admin_session.put(f"{API}/team/{mid}", json={"name": "TEST_KeepRenamed", "email": email})
+            assert u.status_code == 200
+            # old password still works
+            s2 = requests.Session()
+            lr = s2.post(f"{API}/auth/login", json={"email": email, "password": "OldPass1!"})
+            assert lr.status_code == 200
+        finally:
+            admin_session.delete(f"{API}/team/{mid}")
+
+    def test_update_member_duplicate_email_400(self, admin_session):
+        # Attempt to change a member's email to admin's email
+        email = f"test.dup{int(time.time())}@example.com"
+        r = admin_session.post(f"{API}/team", json={"name": "TEST_Dup", "email": email, "password": "Passw0rd!"})
+        assert r.status_code == 200
+        mid = r.json()["id"]
+        try:
+            u = admin_session.put(f"{API}/team/{mid}", json={"name": "TEST_Dup", "email": ADMIN["email"]})
+            assert u.status_code == 400
+        finally:
+            admin_session.delete(f"{API}/team/{mid}")
+
+    def test_update_member_by_non_admin_forbidden(self, member_session, admin_session):
+        # create a target member as admin
+        email = f"test.tgt{int(time.time())}@example.com"
+        r = admin_session.post(f"{API}/team", json={"name": "TEST_Tgt", "email": email, "password": "Passw0rd!"})
+        assert r.status_code == 200
+        mid = r.json()["id"]
+        try:
+            u = member_session.put(f"{API}/team/{mid}", json={"name": "TEST_Hacked", "email": email})
+            assert u.status_code == 403
+        finally:
+            admin_session.delete(f"{API}/team/{mid}")
+
+
+# ---- Work types PUT (regression) ----
+class TestWorkTypesUpdate:
+    def test_update_work_type_name_and_color(self, admin_session):
+        cr = admin_session.post(f"{API}/work-types", json={"name": f"TEST_WT_{int(time.time())}", "color": "#123456"})
+        assert cr.status_code == 200
+        tid = cr.json()["id"]
+        try:
+            new_name = f"TEST_WT_upd_{int(time.time())}"
+            u = admin_session.put(f"{API}/work-types/{tid}", json={"name": new_name, "color": "#abcdef"})
+            assert u.status_code == 200
+            data = u.json()
+            assert data["name"] == new_name
+            assert data["color"] == "#abcdef"
+            # verify persistence
+            lst = admin_session.get(f"{API}/work-types").json()
+            found = [t for t in lst if t["id"] == tid][0]
+            assert found["name"] == new_name
+            assert found["color"] == "#abcdef"
+        finally:
+            admin_session.delete(f"{API}/work-types/{tid}")
+
+
+# ---- Weekly reports ----
+class TestWeeklyReports:
+    def _create_complete_invoice(self, admin_session, price=123.45):
+        types = admin_session.get(f"{API}/work-types").json()
+        jr = admin_session.post(f"{API}/jobs", json={
+            "title": f"TEST_WR_{int(time.time()*1000)}",
+            "type_id": types[0]["id"], "price": price,
+        })
+        assert jr.status_code == 200, jr.text
+        jid = jr.json()["id"]
+        cr = admin_session.post(f"{API}/jobs/{jid}/complete")
+        assert cr.status_code == 200
+        client_name = f"TEST_WRClient_{int(time.time()*1000)}"
+        ir = admin_session.post(f"{API}/jobs/{jid}/invoice", json={
+            "client": {"name": client_name, "piva": "12345678901", "citta": "Milano"},
+            "invoice_number": "WR-001", "invoice_date": "2026-01-06"
+        })
+        assert ir.status_code == 200
+        return jid, client_name
+
+    def _cleanup(self, admin_session, jids, client_names, report_ids):
+        # remove weekly_reports (via direct pymongo not available -> use mongo)
+        for rid in report_ids:
+            # No delete endpoint; use mongo directly
+            pass
+        for jid in jids:
+            admin_session.post(f"{API}/jobs/{jid}/uninvoice")
+            admin_session.delete(f"{API}/jobs/{jid}")
+        clients = admin_session.get(f"{API}/clients").json()
+        for c in clients:
+            if c["name"] in client_names:
+                admin_session.delete(f"{API}/clients/{c['id']}")
+
+    def test_generate_weekly_report_and_list_and_excel_and_404_and_no_new(self, admin_session):
+        # 1) create + complete + invoice a job so we have data to archive
+        jid, cname = self._create_complete_invoice(admin_session, price=250.0)
+        report_id = None
+        try:
+            # 2) generate
+            gr = admin_session.post(f"{API}/weekly-reports/generate")
+            assert gr.status_code == 200, gr.text
+            rep = gr.json()
+            assert "id" in rep
+            report_id = rep["id"]
+            assert rep["n_lavori"] >= 1
+            assert rep["totale"] >= 250.0
+            assert rep["fatturato"] >= 250.0
+            assert isinstance(rep["per_tipo"], list) and len(rep["per_tipo"]) >= 1
+            assert isinstance(rep["invoices"], list) and len(rep["invoices"]) >= 1
+            inv0 = [i for i in rep["invoices"] if i["client_name"] == cname][0]
+            assert inv0["piva"] == "12345678901"
+            assert inv0["citta"] == "Milano"
+
+            # 3) list
+            lr = admin_session.get(f"{API}/weekly-reports")
+            assert lr.status_code == 200
+            assert any(r["id"] == report_id for r in lr.json())
+
+            # 4) second generate -> 400 since no new completed
+            gr2 = admin_session.post(f"{API}/weekly-reports/generate")
+            assert gr2.status_code == 400
+
+            # 5) excel download
+            er = admin_session.get(f"{API}/weekly-reports/{report_id}/excel")
+            assert er.status_code == 200
+            assert "spreadsheetml" in er.headers.get("Content-Type", "")
+            content = er.content
+            assert content[:2] == b"PK"  # xlsx zip signature
+            # validate structure with openpyxl
+            import io as _io
+            from openpyxl import load_workbook
+            wb = load_workbook(_io.BytesIO(content))
+            assert set(wb.sheetnames) == {"Lavori", "Riepilogo Tipologie", "Fatturazione"}
+            ws2 = wb["Riepilogo Tipologie"]
+            assert len(ws2._charts) > 0, "Pie chart missing in Riepilogo Tipologie"
+            ws3 = wb["Fatturazione"]
+            headers = [c.value for c in ws3[1]]
+            expected = ["Lavoro", "Cliente", "P.IVA", "Codice Fiscale", "Indirizzo", "CAP", "Città", "Provincia", "PEC", "Codice SDI", "N. Fattura", "Data Fattura", "Importo (€)"]
+            assert headers == expected
+
+            # 6) excel 404 on unknown id
+            er404 = admin_session.get(f"{API}/weekly-reports/507f1f77bcf86cd799439099/excel")
+            assert er404.status_code == 404
+        finally:
+            # Cleanup: delete the archived job (uninvoice fails since it's archived, but delete works)
+            admin_session.delete(f"{API}/jobs/{jid}")
+            clients = admin_session.get(f"{API}/clients").json()
+            for c in clients:
+                if c["name"] == cname:
+                    admin_session.delete(f"{API}/clients/{c['id']}")
+            # Cleanup weekly_reports via mongo
+            if report_id:
+                try:
+                    import pymongo
+                    from bson import ObjectId as _OID
+                    mc = pymongo.MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+                    mc[os.environ.get("DB_NAME", "test_database")].weekly_reports.delete_one({"_id": _OID(report_id)})
+                    mc.close()
+                except Exception as e:
+                    print(f"weekly_reports cleanup warn: {e}")
+
+
+# ---- Cron endpoint auth ----
+class TestCronAuth:
+    def test_cron_no_auth_401(self):
+        r = requests.post(f"{API}/cron/weekly-archive")
+        assert r.status_code == 401
+
+    def test_cron_wrong_secret_401(self):
+        r = requests.post(f"{API}/cron/weekly-archive", headers={"Authorization": "Bearer wrong-secret"})
+        assert r.status_code == 401
+
+    def test_cron_correct_secret_202_accepted(self):
+        # read secret from backend env
+        secret = None
+        try:
+            with open("/app/backend/.env") as f:
+                for line in f:
+                    if line.startswith("WEBHOOK_CRON_SECRET="):
+                        secret = line.split("=", 1)[1].strip().strip('"')
+                        break
+        except Exception:
+            pass
+        if not secret:
+            pytest.skip("WEBHOOK_CRON_SECRET not available")
+        r = requests.post(f"{API}/cron/weekly-archive",
+                          headers={"Authorization": f"Bearer {secret}",
+                                   "X-Webhook-Id": f"test-webhook-{int(time.time())}"})
+        assert r.status_code == 200, r.text
+        assert r.json().get("status") == "accepted"

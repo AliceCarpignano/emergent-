@@ -43,6 +43,9 @@
 - Palette tipi di lavoro estesa a 12 colori (aggiunti arancione, ciano, lime, ardesia)
 - Impostazioni visibili a tutti i membri (15/06/2026): tab Impostazioni per ogni utente; gestione tipi di lavoro aperta a tutti (backend), gestione membri resta admin-only (UI read-only per membri)
 - Fatturazione (15/06/2026): Completati diviso in "Da fatturare" e "Fatturati"; InvoiceModal con dati fatturazione per lavoro (cliente, P.IVA, CF, indirizzo, PEC/SDI, numero e data fattura); clienti salvati in collection dedicata e riutilizzabili (upsert per nome); endpoint /api/clients + /api/jobs/{id}/invoice|uninvoice
+- Admin rinominato in "Tipografia" (15/06/2026)
+- Editing inline in Impostazioni (15/06/2026): nomi+colori tipi di lavoro editabili (PUT /api/work-types), nome/email/password membri editabili (PUT /api/team/{id}, admin-only, password opzionale)
+- Report settimanali (15/06/2026): cron piattaforma ogni lunedì 07:00 Europe/Rome (POST /api/cron/weekly-archive con WEBHOOK_CRON_SECRET, .emergent/crons.yml) + generazione manuale (POST /api/weekly-reports/generate); archiviazione lavori completati (weekly_archived), report con per_tipo + resoconto fatturazione completo; download Excel editabile (openpyxl, fogli Lavori/Riepilogo Tipologie/Fatturazione, grafico a torta nativo auto-aggiornante) via GET /api/weekly-reports/{id}/excel; sezione WeeklyReports in Dashboard
 
 ## Backlog
 - P0: nessuno
