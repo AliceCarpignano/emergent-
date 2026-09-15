@@ -1,0 +1,9 @@
+crons:
+  - name: weekly-archive
+    description: "Archivia i lavori completati della settimana e genera il report con grafico e fatturazione"
+    cron: "0 7 * * 1"
+    timezone: "Europe/Rome"
+    endpoint: "{{BASE_URL}}/api/cron/weekly-archive"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

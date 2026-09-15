@@ -1,15 +1,18 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import io
 import os
 import logging
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import bcrypt
 import jwt
 from bson import ObjectId
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -243,6 +246,29 @@ async def delete_member(member_id: str, admin: dict = Depends(require_admin)):
         raise HTTPException(status_code=404, detail="Membro non trovato")
     await db.jobs.update_many({"assignee_id": member_id}, {"$set": {"assignee_id": None}})
     return {"message": "Membro eliminato"}
+
+
+class MemberUpdateBody(BaseModel):
+    name: str = Field(min_length=2, max_length=60)
+    email: EmailStr
+    password: Optional[str] = Field(default=None, min_length=6, max_length=100)
+
+
+@api_router.put("/team/{member_id}")
+async def update_member(member_id: str, body: MemberUpdateBody, admin: dict = Depends(require_admin)):
+    target = await db.users.find_one({"_id": to_object_id(member_id)})
+    if not target:
+        raise HTTPException(status_code=404, detail="Membro non trovato")
+    email = body.email.lower()
+    dup = await db.users.find_one({"email": email, "_id": {"$ne": target["_id"]}})
+    if dup:
+        raise HTTPException(status_code=400, detail="Email già in uso da un altro utente")
+    update = {"name": body.name, "email": email}
+    if body.password:
+        update["password_hash"] = hash_password(body.password)
+    await db.users.update_one({"_id": target["_id"]}, {"$set": update})
+    target.update(update)
+    return serialize_user(target)
 
 
 # ---------- Work types ----------
@@ -555,6 +581,159 @@ async def get_report(request: Request, user: dict = Depends(get_current_user)):
         "fatturato_completati": sum(j["price"] for j in serialized if j["archived"]),
         "per_tipo": per_tipo,
     }
+
+
+# ---------- Report settimanali (archivio + Excel) ----------
+
+def current_week_bounds():
+    now = datetime.now(timezone.utc)
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    return monday, monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+
+async def create_weekly_report(source: str):
+    monday, sunday = current_week_bounds()
+    jobs = await db.jobs.find({"archived": True, "weekly_archived": {"$ne": True}}).sort("completed_at", 1).to_list(1000)
+    if not jobs:
+        return None
+    serialized = [await serialize_job(j) for j in jobs]
+    per_tipo_map = {}
+    for j in serialized:
+        key = j["type_name"] or "Senza tipo"
+        entry = per_tipo_map.setdefault(key, {"name": key, "color": j["type_color"] or "#94A3B8", "totale": 0, "count": 0})
+        entry["totale"] += j["price"]
+        entry["count"] += 1
+    invoices = []
+    for j in serialized:
+        if j["invoiced"]:
+            client_doc = await db.clients.find_one({"_id": ObjectId(j["client_id"])}) if j["client_id"] else None
+            invoices.append({
+                "job_title": j["title"],
+                "client_name": j["client_name"],
+                "piva": client_doc.get("piva") if client_doc else None,
+                "codice_fiscale": client_doc.get("codice_fiscale") if client_doc else None,
+                "indirizzo": client_doc.get("indirizzo") if client_doc else None,
+                "cap": client_doc.get("cap") if client_doc else None,
+                "citta": client_doc.get("citta") if client_doc else None,
+                "provincia": client_doc.get("provincia") if client_doc else None,
+                "pec": client_doc.get("pec") if client_doc else None,
+                "codice_sdi": client_doc.get("codice_sdi") if client_doc else None,
+                "invoice_number": j["invoice_number"],
+                "invoice_date": j["invoice_date"],
+                "price": j["price"],
+            })
+    doc = {
+        "period_start": monday.isoformat(),
+        "period_end": sunday.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "n_lavori": len(serialized),
+        "totale": sum(j["price"] for j in serialized),
+        "fatturato": sum(j["price"] for j in serialized if j["invoiced"]),
+        "per_tipo": sorted(per_tipo_map.values(), key=lambda x: x["totale"], reverse=True),
+        "jobs": serialized,
+        "invoices": invoices,
+    }
+    result = await db.weekly_reports.insert_one(doc)
+    await db.jobs.update_many({"_id": {"$in": [j["_id"] for j in jobs]}}, {"$set": {"weekly_archived": True}})
+    doc["_id"] = result.inserted_id
+    return doc
+
+
+def serialize_report(r: dict) -> dict:
+    return {**{k: v for k, v in r.items() if k != "_id"}, "id": str(r["_id"])}
+
+
+@api_router.get("/weekly-reports")
+async def list_weekly_reports(user: dict = Depends(get_current_user)):
+    reports = await db.weekly_reports.find({}).sort("created_at", -1).to_list(200)
+    return [serialize_report(r) for r in reports]
+
+
+@api_router.post("/weekly-reports/generate")
+async def generate_weekly_report(user: dict = Depends(get_current_user)):
+    doc = await create_weekly_report("manual")
+    if not doc:
+        raise HTTPException(status_code=400, detail="Nessun lavoro completato da archiviare")
+    return serialize_report(doc)
+
+
+async def run_weekly_archive(run_id: str):
+    if run_id:
+        if await db.cron_runs.find_one({"run_id": run_id}):
+            return
+        await db.cron_runs.insert_one({"run_id": run_id, "at": datetime.now(timezone.utc).isoformat(), "job": "weekly-archive"})
+    await create_weekly_report("cron")
+
+
+@api_router.post("/cron/weekly-archive")
+async def cron_weekly_archive(request: Request, background_tasks: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("Authorization", "")
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    if not secret or not auth.startswith("Bearer ") or not secrets.compare_digest(auth[7:], secret):
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    background_tasks.add_task(run_weekly_archive, request.headers.get("X-Webhook-Id", ""))
+    return {"status": "accepted"}
+
+
+@api_router.get("/weekly-reports/{report_id}/excel")
+async def download_weekly_report_excel(report_id: str, user: dict = Depends(get_current_user)):
+    from openpyxl import Workbook
+    from openpyxl.chart import PieChart, Reference
+    from openpyxl.styles import Font
+
+    report = await db.weekly_reports.find_one({"_id": to_object_id(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report non trovato")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Lavori"
+    ws.append(["Titolo", "Tipo", "Membro", "Completato il", "Prezzo (€)"])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for j in report["jobs"]:
+        ws.append([j["title"], j["type_name"] or "Senza tipo", j["assignee_name"], (j["completed_at"] or "")[:10], j["price"]])
+
+    ws2 = wb.create_sheet("Riepilogo Tipologie")
+    ws2.append(["Tipologia", "N. Lavori", "Totale (€)"])
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+    for t in report["per_tipo"]:
+        ws2.append([t["name"], t["count"], t["totale"]])
+    if report["per_tipo"]:
+        pie = PieChart()
+        pie.title = "Entrate per Tipologia di Lavoro"
+        data = Reference(ws2, min_col=3, min_row=1, max_row=1 + len(report["per_tipo"]))
+        cats = Reference(ws2, min_col=1, min_row=2, max_row=1 + len(report["per_tipo"]))
+        pie.add_data(data, titles_from_data=True)
+        pie.set_categories(cats)
+        pie.height = 9
+        pie.width = 14
+        ws2.add_chart(pie, "E2")
+
+    ws3 = wb.create_sheet("Fatturazione")
+    ws3.append(["Lavoro", "Cliente", "P.IVA", "Codice Fiscale", "Indirizzo", "CAP", "Città", "Provincia", "PEC", "Codice SDI", "N. Fattura", "Data Fattura", "Importo (€)"])
+    for cell in ws3[1]:
+        cell.font = Font(bold=True)
+    for inv in report["invoices"]:
+        ws3.append([inv["job_title"], inv["client_name"], inv["piva"], inv["codice_fiscale"], inv["indirizzo"], inv["cap"], inv["citta"], inv["provincia"], inv["pec"], inv["codice_sdi"], inv["invoice_number"], inv["invoice_date"], inv["price"]])
+
+    for sheet in (ws, ws2, ws3):
+        for col in sheet.columns:
+            length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=10)
+            sheet.column_dimensions[col[0].column_letter].width = min(length + 4, 50)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"report_settimana_{report['period_start'][:10]}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------- Startup: indexes + seed ----------

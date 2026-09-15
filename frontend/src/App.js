@@ -10,6 +10,7 @@ import { StatsDashboard } from "@/components/StatsDashboard";
 import { GeneralWorkTable } from "@/components/GeneralWorkTable";
 import { CompletedFolder } from "@/components/CompletedFolder";
 import { ListManager } from "@/components/ListManager";
+import { WeeklyReports } from "@/components/WeeklyReports";
 import { WorkFormModal } from "@/components/WorkFormModal";
 import { ReportModal } from "@/components/ReportModal";
 import { Button } from "@/components/ui/button";
@@ -30,23 +31,26 @@ function MainApp({ dark, toggleTheme }) {
   const [types, setTypes] = useState([]);
   const [team, setTeam] = useState([]);
   const [stats, setStats] = useState(null);
+  const [weeklyReports, setWeeklyReports] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [reportOpen, setReportOpen] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [j, c, t, m, s] = await Promise.all([
+    const [j, c, t, m, s, w] = await Promise.all([
       api.get("/jobs", { params: { archived: false } }),
       api.get("/jobs", { params: { archived: true } }),
       api.get("/work-types"),
       api.get("/team"),
       api.get("/stats"),
+      api.get("/weekly-reports"),
     ]);
     setJobs(j.data);
     setCompleted(c.data);
     setTypes(t.data);
     setTeam(m.data);
     setStats(s.data);
+    setWeeklyReports(w.data);
   }, []);
 
   useEffect(() => {
@@ -89,6 +93,7 @@ function MainApp({ dark, toggleTheme }) {
               </Button>
             </div>
             <StatsDashboard stats={stats} />
+            <WeeklyReports reports={weeklyReports} onRefresh={refresh} />
           </div>
         )}
         {tab === "lavori" && (
