@@ -36,6 +36,7 @@
 - Dashboard: sezione guadagni aggregata per tipologia di lavoro (stats.per_tipo) invece che per persona
 - Bug fix sessione: endpoint POST /api/auth/refresh + interceptor axios (rinnovo automatico access token scaduto) — verificato in iteration_2 (backend 20/20, frontend 100%)
 - A11y: aria-label sul pulsante logout
+- Feature Report (15/06/2026): endpoint GET /api/report?from&to (filtro per data consegna, KPI, aggregazione per_tipo), modale ReportModal con grafico a torta recharts (fatturato per tipologia), KPI e tabella lavori del periodo; pulsante "Genera Report" in Dashboard — verificato in iteration_3 (backend 26/26)
 
 ## Backlog
 - P0: nessuno

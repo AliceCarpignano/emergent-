@@ -1,0 +1,25 @@
+{
+  "summary": "Iterazione 3: testata nuova feature Report Lavori per Periodo. Backend: 26/26 test pytest passati (aggiunti 6 nuovi test per /api/report: auth 401, parametri mancanti 400, from>to 400, full year data integrity, narrow range excludes, member allowed). Frontend: modale Report si apre da Dashboard, filtro date 2026-01-01→2026-12-31 mostra 6 lavori, KPI corretti (6 lavori, 1550,00€ fatturato completati, 7200,00€ valore totale), grafico a torta (donut) renderizzato con 5 tipologie colorate e legenda, tabella lavori popolata con 6 righe. Periodo vuoto 2020 mostra 'Nessun lavoro nel periodo selezionato' e 0 righe. Regressione: tab Lavori/Completati/Impostazioni/Dashboard OK, logout OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ReportModal PieChart", "issues": ["Tooltip Recharts al hover di path non ha prodotto testo intercettabile via .recharts-tooltip-wrapper nel test automatizzato. Visivamente il grafico e la legenda funzionano. Verificare che il tooltip mostri effettivamente importi formattati in euro al passaggio del mouse (formatter potrebbe non essere collegato)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": ["Verificare manualmente/nel codice ReportModal.js che il tooltip del PieChart usi un formatter che restituisca il valore in euro (es. `${valore.toLocaleString('it-IT')} €`)."],
+  "critical_code_review_comments": [
+    "Endpoint /api/report legge from/to come stringhe YYYY-MM-DD senza validazione formato: una data mal formata (es. '2026-13-45') non viene rifiutata perché il confronto è lessicografico. Consigliato validare via Pydantic o datetime.strptime.",
+    "Il filtro Mongo assume che due_date sia salvato come stringa YYYY-MM-DD; se in futuro venisse salvato come ISO datetime il confronto lessicografico continuerebbe a funzionare solo per il prefisso — documentare o forzare il tipo."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "~95% (tooltip da riverificare)"},
+  "test_credentials": "Admin: iariamaarco@gmail.com / Admin2026! — Member: giulia.bianchi@team.it / Team2026!",
+  "seed_data_creation": "Nessun seed aggiuntivo creato; usati dati esistenti (6 lavori con due_date nel 2026).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Feature Report completa e funzionante. Backend endpoint /api/report validato per auth, validazioni date, aggregazione per_tipo, coerenza somme (per_tipo totali == valore_totale, fatturato_completati <= valore_totale). Frontend UI verificata con data-testid: open-report-button, report-modal, report-generate-button, report-pie-chart, report-job-row. Unico dubbio residuo: formatter tooltip PieChart (visivamente ok, non intercettato in automazione).",
+  "rca of the issue": "N/A - nessun bug bloccante."
+}

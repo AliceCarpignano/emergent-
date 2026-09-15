@@ -424,6 +424,36 @@ async def get_stats(user: dict = Depends(get_current_user)):
     }
 
 
+# ---------- Report ----------
+
+@api_router.get("/report")
+async def get_report(request: Request, user: dict = Depends(get_current_user)):
+    from_date = request.query_params.get("from")
+    to_date = request.query_params.get("to")
+    if not from_date or not to_date:
+        raise HTTPException(status_code=400, detail="Specificare le date di inizio e fine periodo")
+    if from_date > to_date:
+        raise HTTPException(status_code=400, detail="Intervallo di date non valido")
+    jobs = await db.jobs.find({"due_date": {"$gte": from_date, "$lte": to_date}}).sort("due_date", 1).to_list(1000)
+    serialized = [await serialize_job(j) for j in jobs]
+    per_tipo_map = {}
+    for j in serialized:
+        key = j["type_id"] or "none"
+        entry = per_tipo_map.setdefault(key, {"name": j["type_name"] or "Senza tipo", "color": j["type_color"] or "#94A3B8", "totale": 0, "count": 0})
+        entry["totale"] += j["price"]
+        entry["count"] += 1
+    per_tipo = sorted(per_tipo_map.values(), key=lambda x: x["totale"], reverse=True)
+    return {
+        "from": from_date,
+        "to": to_date,
+        "jobs": serialized,
+        "totale_lavori": len(serialized),
+        "valore_totale": sum(j["price"] for j in serialized),
+        "fatturato_completati": sum(j["price"] for j in serialized if j["archived"]),
+        "per_tipo": per_tipo,
+    }
+
+
 # ---------- Startup: indexes + seed ----------
 
 async def seed_data():

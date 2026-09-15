@@ -11,7 +11,9 @@ import { GeneralWorkTable } from "@/components/GeneralWorkTable";
 import { CompletedFolder } from "@/components/CompletedFolder";
 import { ListManager } from "@/components/ListManager";
 import { WorkFormModal } from "@/components/WorkFormModal";
-import { Loader2 } from "lucide-react";
+import { ReportModal } from "@/components/ReportModal";
+import { Button } from "@/components/ui/button";
+import { Loader2, FileBarChart } from "lucide-react";
 
 const TITLES = {
   dashboard: { title: "Dashboard & Statistiche", sub: "Panoramica del lavoro del team" },
@@ -30,6 +32,7 @@ function MainApp({ dark, toggleTheme }) {
   const [stats, setStats] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [j, c, t, m, s] = await Promise.all([
@@ -73,7 +76,21 @@ function MainApp({ dark, toggleTheme }) {
           </h2>
         </div>
 
-        {tab === "dashboard" && <StatsDashboard stats={stats} />}
+        {tab === "dashboard" && (
+          <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setReportOpen(true)}
+                data-testid="open-report-button"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <FileBarChart className="h-4 w-4 mr-1.5" />
+                Genera Report
+              </Button>
+            </div>
+            <StatsDashboard stats={stats} />
+          </div>
+        )}
         {tab === "lavori" && (
           <GeneralWorkTable
             jobs={jobs}
@@ -99,6 +116,7 @@ function MainApp({ dark, toggleTheme }) {
         job={editingJob}
         onSaved={refresh}
       />
+      <ReportModal open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   );
 }

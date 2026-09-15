@@ -229,6 +229,56 @@ class TestJobs:
         r6 = admin_session.delete(f"{API}/jobs/{jid}")
         assert r6.status_code == 200
 
+# ---- Report ----
+class TestReport:
+    def test_report_unauth(self):
+        r = requests.get(f"{API}/report?from=2026-01-01&to=2026-12-31")
+        assert r.status_code == 401
+
+    def test_report_missing_params(self, admin_session):
+        r = admin_session.get(f"{API}/report")
+        assert r.status_code == 400
+        r2 = admin_session.get(f"{API}/report?from=2026-01-01")
+        assert r2.status_code == 400
+
+    def test_report_invalid_range(self, admin_session):
+        r = admin_session.get(f"{API}/report?from=2026-12-31&to=2026-01-01")
+        assert r.status_code == 400
+
+    def test_report_full_year(self, admin_session):
+        r = admin_session.get(f"{API}/report?from=2026-01-01&to=2026-12-31")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["from"] == "2026-01-01"
+        assert data["to"] == "2026-12-31"
+        assert isinstance(data["jobs"], list)
+        assert data["totale_lavori"] == len(data["jobs"])
+        assert data["valore_totale"] >= 0
+        assert data["fatturato_completati"] >= 0
+        assert data["fatturato_completati"] <= data["valore_totale"]
+        assert isinstance(data["per_tipo"], list)
+        for pt in data["per_tipo"]:
+            assert "name" in pt and "color" in pt and "totale" in pt and "count" in pt
+        # sum of per_tipo totals equals valore_totale
+        assert abs(sum(pt["totale"] for pt in data["per_tipo"]) - data["valore_totale"]) < 0.01
+        assert sum(pt["count"] for pt in data["per_tipo"]) == data["totale_lavori"]
+
+    def test_report_narrow_range_excludes(self, admin_session):
+        full = admin_session.get(f"{API}/report?from=2026-01-01&to=2026-12-31").json()
+        empty = admin_session.get(f"{API}/report?from=2020-01-01&to=2020-12-31").json()
+        assert empty["totale_lavori"] == 0
+        assert empty["valore_totale"] == 0
+        assert empty["per_tipo"] == []
+        # narrow range July should exclude jobs in Aug/Sep
+        july = admin_session.get(f"{API}/report?from=2026-07-01&to=2026-07-31").json()
+        assert july["totale_lavori"] <= full["totale_lavori"]
+
+    def test_report_member_allowed(self, member_session):
+        r = member_session.get(f"{API}/report?from=2026-01-01&to=2026-12-31")
+        assert r.status_code == 200
+
+
+class TestJobsExtra:
     def test_invalid_status(self, admin_session):
         types = admin_session.get(f"{API}/work-types").json()
         team = admin_session.get(f"{API}/team").json()
