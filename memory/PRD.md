@@ -37,6 +37,8 @@
 - Bug fix sessione: endpoint POST /api/auth/refresh + interceptor axios (rinnovo automatico access token scaduto) — verificato in iteration_2 (backend 20/20, frontend 100%)
 - A11y: aria-label sul pulsante logout
 - Feature Report (15/06/2026): endpoint GET /api/report?from&to (filtro per data consegna, KPI, aggregazione per_tipo), modale ReportModal con grafico a torta recharts (fatturato per tipologia), KPI e tabella lavori del periodo; pulsante "Genera Report" in Dashboard — verificato in iteration_3 (backend 26/26)
+- Tabella Lavori a sezioni per membro (15/06/2026): raggruppamento per assegnatario con header collassabile (conteggio + valore sezione), sezione unica "Non assegnato" (include lavori di membri eliminati), checkbox selezione multipla con azioni bulk (confeziona/elimina selezionati), riga cliccabile apre modifica — verificato in iteration_4 (backend 30/30)
+- Creazione lavoro parziale: tipo, membro, data consegna e prezzo opzionali (JobBody Optional), compilabili in seguito via modifica
 
 ## Backlog
 - P0: nessuno
