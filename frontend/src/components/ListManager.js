@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tag, Users, Plus, Trash2 } from "lucide-react";
 
-const PALETTE = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444", "#14B8A6"];
+const PALETTE = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444", "#14B8A6", "#F97316", "#06B6D4", "#84CC16", "#64748B"];
 
 export function ListManager({ types, team, onRefresh }) {
   const [newType, setNewType] = useState("");

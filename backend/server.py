@@ -475,6 +475,12 @@ async def seed_data():
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
 
+    old_admin_email = "iariamaarco@gmail.com"
+    if admin_email != old_admin_email:
+        old_admin = await db.users.find_one({"email": old_admin_email})
+        if old_admin and old_admin.get("role") == "admin":
+            await db.users.update_one({"email": old_admin_email}, {"$set": {"role": "member", "name": "Marco"}})
+
     if await db.work_types.count_documents({}) == 0:
         await db.work_types.insert_many([
             {"name": "Grafica", "color": "#EC4899"},

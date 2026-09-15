@@ -39,6 +39,8 @@
 - Feature Report (15/06/2026): endpoint GET /api/report?from&to (filtro per data consegna, KPI, aggregazione per_tipo), modale ReportModal con grafico a torta recharts (fatturato per tipologia), KPI e tabella lavori del periodo; pulsante "Genera Report" in Dashboard — verificato in iteration_3 (backend 26/26)
 - Tabella Lavori a sezioni per membro (15/06/2026): raggruppamento per assegnatario con header collassabile (conteggio + valore sezione), sezione unica "Non assegnato" (include lavori di membri eliminati), checkbox selezione multipla con azioni bulk (confeziona/elimina selezionati), riga cliccabile apre modifica — verificato in iteration_4 (backend 30/30)
 - Creazione lavoro parziale: tipo, membro, data consegna e prezzo opzionali (JobBody Optional), compilabili in seguito via modifica
+- Admin sostituito (15/06/2026): admin = tipideal@tipideal.it / Admin2026!; iariamaarco@gmail.com demotato a member "Marco" (migrazione in seed_data)
+- Palette tipi di lavoro estesa a 12 colori (aggiunti arancione, ciano, lime, ardesia)
 
 ## Backlog
 - P0: nessuno
