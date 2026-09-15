@@ -34,6 +34,8 @@
 - Seed demo: 5 tipi lavoro, 3 member, 3 lavori attivi, 2 completati
 - Test: backend 17/17 pytest, frontend Playwright — tutto verde (iteration_1)
 - Dashboard: sezione guadagni aggregata per tipologia di lavoro (stats.per_tipo) invece che per persona
+- Bug fix sessione: endpoint POST /api/auth/refresh + interceptor axios (rinnovo automatico access token scaduto) — verificato in iteration_2 (backend 20/20, frontend 100%)
+- A11y: aria-label sul pulsante logout
 
 ## Backlog
 - P0: nessuno

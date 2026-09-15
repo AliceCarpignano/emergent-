@@ -186,6 +186,26 @@ async def me(user: dict = Depends(get_current_user)):
     return serialize_user(user)
 
 
+@api_router.post("/auth/refresh")
+async def refresh(request: Request, response: Response):
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Refresh token mancante")
+    try:
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Token non valido")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token scaduto")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token non valido")
+    user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+    if not user:
+        raise HTTPException(status_code=401, detail="Utente non trovato")
+    response.set_cookie("access_token", create_access_token(str(user["_id"]), user["email"]), httponly=True, secure=True, samesite="none", max_age=3600, path="/")
+    return serialize_user(user)
+
+
 # ---------- Team members ----------
 
 @api_router.get("/team")

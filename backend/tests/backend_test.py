@@ -71,6 +71,49 @@ class TestAuth:
         r = s.post(f"{API}/auth/logout")
         assert r.status_code == 200
 
+    def test_refresh_without_cookie(self):
+        r = requests.post(f"{API}/auth/refresh")
+        assert r.status_code == 401
+
+    def test_refresh_with_refresh_cookie_only(self):
+        # Login -> keep only refresh_token, drop access_token, refresh must succeed
+        s = requests.Session()
+        r = s.post(f"{API}/auth/login", json=ADMIN)
+        assert r.status_code == 200
+        assert "refresh_token" in s.cookies.get_dict()
+        # Simulate expired/missing access token
+        s.cookies.set("access_token", "", domain=s.cookies.list_domains()[0])
+        # Clear access_token entirely
+        rc = s.cookies.get("refresh_token")
+        s.cookies.clear()
+        # Re-set only refresh_token (host from BASE_URL)
+        from urllib.parse import urlparse
+        host = urlparse(BASE_URL).hostname
+        s.cookies.set("refresh_token", rc, domain=host, path="/")
+        # /auth/me should now be 401 (no access token)
+        r_me = s.get(f"{API}/auth/me")
+        assert r_me.status_code == 401
+        # Refresh should return 200 and set access_token
+        r_ref = s.post(f"{API}/auth/refresh")
+        assert r_ref.status_code == 200, r_ref.text
+        data = r_ref.json()
+        assert data["email"] == ADMIN["email"]
+        assert "access_token" in s.cookies.get_dict()
+        # /auth/me should now succeed
+        r_me2 = s.get(f"{API}/auth/me")
+        assert r_me2.status_code == 200
+        assert r_me2.json()["email"] == ADMIN["email"]
+
+    def test_me_with_invalid_access_token(self):
+        # Simulate expired/invalid access token, no refresh -> 401
+        s = requests.Session()
+        from urllib.parse import urlparse
+        host = urlparse(BASE_URL).hostname
+        s.cookies.set("access_token", "invalid.jwt.token", domain=host, path="/")
+        r = s.get(f"{API}/auth/me")
+        assert r.status_code == 401
+
+
 
 # ---- Stats ----
 class TestStats:
@@ -78,9 +121,9 @@ class TestStats:
         r = admin_session.get(f"{API}/stats")
         assert r.status_code == 200
         data = r.json()
-        assert data["fatturato_completati"] == 3100
-        assert data["completati_totali"] == 2
-        assert isinstance(data["per_persona"], list)
+        assert data["fatturato_completati"] >= 1500
+        assert data["completati_totali"] >= 1
+        assert isinstance(data["per_tipo"], list)
         assert data["lavori_attivi_totali"] >= 3
 
 

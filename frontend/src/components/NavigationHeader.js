@@ -74,6 +74,7 @@ export function NavigationHeader({ user, tab, setTab, dark, toggleTheme, onLogou
             </div>
             <button
               data-testid="logout-button"
+              aria-label="Disconnetti"
               onClick={onLogout}
               title="Disconnetti"
               className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"

@@ -5,6 +5,29 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let refreshing = null;
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    const isAuthCall = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"].some((p) =>
+      original?.url?.includes(p)
+    );
+    if (error.response?.status === 401 && original && !original._retried && !isAuthCall) {
+      original._retried = true;
+      try {
+        refreshing = refreshing || api.post("/auth/refresh").finally(() => { refreshing = null; });
+        await refreshing;
+        return api(original);
+      } catch {
+        return Promise.reject(error);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export function formatApiError(err) {
   const detail = err?.response?.data?.detail;
   if (detail == null) return "Si è verificato un errore. Riprova.";
