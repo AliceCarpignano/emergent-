@@ -8,7 +8,7 @@ import { Tag, Users, Plus, Trash2 } from "lucide-react";
 
 const PALETTE = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444", "#14B8A6", "#F97316", "#06B6D4", "#84CC16", "#64748B"];
 
-export function ListManager({ types, team, onRefresh }) {
+export function ListManager({ types, team, isAdmin, onRefresh }) {
   const [newType, setNewType] = useState("");
   const [newTypeColor, setNewTypeColor] = useState(PALETTE[0]);
   const [memberName, setMemberName] = useState("");
@@ -129,7 +129,8 @@ export function ListManager({ types, team, onRefresh }) {
           <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
           <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Membri del Team</h3>
         </div>
-        <form onSubmit={addMember} className="space-y-3">
+        {isAdmin ? (
+          <form onSubmit={addMember} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">Nome</Label>
@@ -147,7 +148,12 @@ export function ListManager({ types, team, onRefresh }) {
           <Button type="submit" disabled={saving} data-testid="list-manager-add-member-button" className="bg-indigo-600 hover:bg-indigo-700 text-white">
             <Plus className="h-4 w-4 mr-1" /> Aggiungi Membro
           </Button>
-        </form>
+          </form>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Solo l'amministratore può aggiungere o rimuovere membri del team.
+          </p>
+        )}
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
           {team.map((m) => (
             <li key={m.id} data-testid="team-member-item" className="flex items-center justify-between py-2.5">
@@ -163,7 +169,7 @@ export function ListManager({ types, team, onRefresh }) {
                   <span className="block text-xs text-slate-500 dark:text-slate-400">{m.email}</span>
                 </span>
               </span>
-              {m.role !== "admin" && (
+              {isAdmin && m.role !== "admin" && (
                 <button
                   data-testid="delete-member-button"
                   onClick={() => deleteMember(m)}

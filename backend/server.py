@@ -254,7 +254,7 @@ async def list_work_types(user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/work-types")
-async def create_work_type(body: WorkTypeBody, admin: dict = Depends(require_admin)):
+async def create_work_type(body: WorkTypeBody, user: dict = Depends(get_current_user)):
     existing = await db.work_types.find_one({"name": {"$regex": f"^{body.name}$", "$options": "i"}})
     if existing:
         raise HTTPException(status_code=400, detail="Tipo di lavoro già esistente")
@@ -263,7 +263,7 @@ async def create_work_type(body: WorkTypeBody, admin: dict = Depends(require_adm
 
 
 @api_router.put("/work-types/{type_id}")
-async def update_work_type(type_id: str, body: WorkTypeBody, admin: dict = Depends(require_admin)):
+async def update_work_type(type_id: str, body: WorkTypeBody, user: dict = Depends(get_current_user)):
     result = await db.work_types.update_one({"_id": to_object_id(type_id)}, {"$set": {"name": body.name, "color": body.color}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Tipo non trovato")
@@ -271,7 +271,7 @@ async def update_work_type(type_id: str, body: WorkTypeBody, admin: dict = Depen
 
 
 @api_router.delete("/work-types/{type_id}")
-async def delete_work_type(type_id: str, admin: dict = Depends(require_admin)):
+async def delete_work_type(type_id: str, user: dict = Depends(get_current_user)):
     result = await db.work_types.delete_one({"_id": to_object_id(type_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Tipo non trovato")
@@ -297,6 +297,11 @@ async def serialize_job(job: dict) -> dict:
         "status": job["status"],
         "archived": job.get("archived", False),
         "completed_at": job.get("completed_at").isoformat() if job.get("completed_at") else None,
+        "invoiced": job.get("invoiced", False),
+        "invoice_number": job.get("invoice_number"),
+        "invoice_date": job.get("invoice_date"),
+        "client_id": str(job["client_id"]) if job.get("client_id") else None,
+        "client_name": job.get("client_name"),
         "created_at": job["created_at"].isoformat(),
     }
 
@@ -387,6 +392,104 @@ async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Lavoro non trovato")
     return {"message": "Lavoro eliminato"}
+
+
+# ---------- Clients & Fatturazione ----------
+
+class ClientBody(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    piva: Optional[str] = None
+    codice_fiscale: Optional[str] = None
+    indirizzo: Optional[str] = None
+    cap: Optional[str] = None
+    citta: Optional[str] = None
+    provincia: Optional[str] = None
+    pec: Optional[str] = None
+    codice_sdi: Optional[str] = None
+
+
+class InvoiceBody(BaseModel):
+    client: ClientBody
+    invoice_number: str = Field(min_length=1, max_length=60)
+    invoice_date: str
+
+
+def serialize_client(c: dict) -> dict:
+    return {
+        "id": str(c["_id"]),
+        "name": c["name"],
+        "piva": c.get("piva"),
+        "codice_fiscale": c.get("codice_fiscale"),
+        "indirizzo": c.get("indirizzo"),
+        "cap": c.get("cap"),
+        "citta": c.get("citta"),
+        "provincia": c.get("provincia"),
+        "pec": c.get("pec"),
+        "codice_sdi": c.get("codice_sdi"),
+    }
+
+
+@api_router.get("/clients")
+async def list_clients(user: dict = Depends(get_current_user)):
+    clients = await db.clients.find({}).sort("name", 1).to_list(500)
+    return [serialize_client(c) for c in clients]
+
+
+@api_router.post("/clients")
+async def upsert_client(body: ClientBody, user: dict = Depends(get_current_user)):
+    data = body.model_dump()
+    existing = await db.clients.find_one({"name": body.name})
+    if existing:
+        await db.clients.update_one({"_id": existing["_id"]}, {"$set": data})
+        existing.update(data)
+        return serialize_client(existing)
+    result = await db.clients.insert_one({**data, "created_at": datetime.now(timezone.utc)})
+    return serialize_client({"_id": result.inserted_id, **data})
+
+
+@api_router.delete("/clients/{client_id}")
+async def delete_client(client_id: str, user: dict = Depends(get_current_user)):
+    result = await db.clients.delete_one({"_id": to_object_id(client_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+    return {"message": "Cliente eliminato"}
+
+
+@api_router.post("/jobs/{job_id}/invoice")
+async def invoice_job(job_id: str, body: InvoiceBody, user: dict = Depends(get_current_user)):
+    job = await db.jobs.find_one({"_id": to_object_id(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Lavoro non trovato")
+    data = body.client.model_dump()
+    existing = await db.clients.find_one({"name": body.client.name})
+    if existing:
+        await db.clients.update_one({"_id": existing["_id"]}, {"$set": data})
+        client_id = existing["_id"]
+    else:
+        result = await db.clients.insert_one({**data, "created_at": datetime.now(timezone.utc)})
+        client_id = result.inserted_id
+    await db.jobs.update_one(
+        {"_id": job["_id"]},
+        {"$set": {
+            "invoiced": True,
+            "invoice_number": body.invoice_number,
+            "invoice_date": body.invoice_date,
+            "client_id": client_id,
+            "client_name": body.client.name,
+        }},
+    )
+    return {"message": "Lavoro fatturato", "client_id": str(client_id)}
+
+
+@api_router.post("/jobs/{job_id}/uninvoice")
+async def uninvoice_job(job_id: str, user: dict = Depends(get_current_user)):
+    result = await db.jobs.update_one(
+        {"_id": to_object_id(job_id)},
+        {"$set": {"invoiced": False, "invoice_number": None, "invoice_date": None, "client_id": None, "client_name": None}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lavoro non trovato")
+    return {"message": "Fattura annullata"}
 
 
 # ---------- Stats ----------

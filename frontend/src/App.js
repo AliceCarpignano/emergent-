@@ -103,8 +103,8 @@ function MainApp({ dark, toggleTheme }) {
           />
         )}
         {tab === "completati" && <CompletedFolder jobs={completed} onRefresh={refresh} />}
-        {tab === "impostazioni" && user.role === "admin" && (
-          <ListManager types={types} team={team} onRefresh={refresh} />
+        {tab === "impostazioni" && (
+          <ListManager types={types} team={team} isAdmin={user.role === "admin"} onRefresh={refresh} />
         )}
       </main>
 

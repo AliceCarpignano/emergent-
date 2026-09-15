@@ -36,20 +36,18 @@ export function NavigationHeader({ user, tab, setTab, dark, toggleTheme, onLogou
                 <span className="hidden md:inline">{label}</span>
               </button>
             ))}
-            {user.role === "admin" && (
-              <button
-                data-testid="nav-settings-tab"
-                onClick={() => setTab("impostazioni")}
-                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  tab === "impostazioni"
-                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                <Settings className="h-4 w-4" />
-                <span className="hidden md:inline">Impostazioni</span>
-              </button>
-            )}
+            <button
+              data-testid="nav-settings-tab"
+              onClick={() => setTab("impostazioni")}
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === "impostazioni"
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden md:inline">Impostazioni</span>
+            </button>
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
