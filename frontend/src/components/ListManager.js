@@ -8,6 +8,107 @@ import { Tag, Users, Plus, Trash2, Pencil, Check, X } from "lucide-react";
 
 const PALETTE = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444", "#14B8A6", "#F97316", "#06B6D4", "#84CC16", "#64748B"];
 
+function TypeItem({ type, isEditing, editName, editColor, saving, onStartEdit, onChangeName, onChangeColor, onSave, onCancel, onDelete }) {
+  if (isEditing) {
+    return (
+      <li data-testid="work-type-item" className="py-2.5">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input data-testid="edit-type-name-input" value={editName} onChange={(e) => onChangeName(e.target.value)} className="flex-1 h-8" />
+            <Button size="sm" onClick={onSave} disabled={saving} data-testid="edit-type-save-button" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8">
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancel} className="h-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {PALETTE.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onChangeColor(c)}
+                className={`h-5 w-5 rounded-full transition-transform ${editColor === c ? "ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900 scale-110" : ""}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      </li>
+    );
+  }
+  return (
+    <li data-testid="work-type-item" className="py-2.5">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2.5">
+          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{type.name}</span>
+        </span>
+        <div className="flex gap-1">
+          <button data-testid="edit-type-button" onClick={onStartEdit} className="h-8 w-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button data-testid="delete-type-button" onClick={onDelete} className="h-8 w-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function MemberItem({ member, isAdmin, isEditing, editName, editEmail, editPassword, saving, onStartEdit, onChangeName, onChangeEmail, onChangePassword, onSave, onCancel, onDelete }) {
+  if (isAdmin && isEditing) {
+    return (
+      <li data-testid="team-member-item" className="py-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+          <Input data-testid="edit-member-name-input" value={editName} onChange={(e) => onChangeName(e.target.value)} placeholder="Nome" className="h-8" />
+          <Input data-testid="edit-member-email-input" type="email" value={editEmail} onChange={(e) => onChangeEmail(e.target.value)} placeholder="Email" className="h-8" />
+          <Input data-testid="edit-member-password-input" type="password" value={editPassword} onChange={(e) => onChangePassword(e.target.value)} placeholder="Nuova password (opzionale)" className="h-8" />
+          <div className="flex gap-1">
+            <Button size="sm" onClick={onSave} disabled={saving} data-testid="edit-member-save-button" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8">
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancel} className="h-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </li>
+    );
+  }
+  return (
+    <li data-testid="team-member-item" className="py-2.5">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2.5">
+          <span className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-semibold" style={{ backgroundColor: member.color }}>
+            {member.name.charAt(0).toUpperCase()}
+          </span>
+          <span>
+            <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              {member.name}
+              {member.role === "admin" && <span className="ml-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">Admin</span>}
+            </span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400">{member.email}</span>
+          </span>
+        </span>
+        {isAdmin && (
+          <div className="flex gap-1">
+            <button data-testid="edit-member-button" onClick={onStartEdit} className="h-8 w-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors">
+              <Pencil className="h-4 w-4" />
+            </button>
+            {member.role !== "admin" && (
+              <button data-testid="delete-member-button" onClick={onDelete} className="h-8 w-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function ListManager({ types, team, isAdmin, onRefresh }) {
   const [newType, setNewType] = useState("");
   const [newTypeColor, setNewTypeColor] = useState(PALETTE[0]);
@@ -148,64 +249,24 @@ export function ListManager({ types, team, isAdmin, onRefresh }) {
         </form>
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
           {types.map((t) => (
-            <li key={t.id} data-testid="work-type-item" className="py-2.5">
-              {editingType === t.id ? (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      data-testid="edit-type-name-input"
-                      value={editTypeName}
-                      onChange={(e) => setEditTypeName(e.target.value)}
-                      className="flex-1 h-8"
-                    />
-                    <Button size="sm" onClick={() => saveTypeEdit(t)} disabled={saving} data-testid="edit-type-save-button" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8">
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingType(null)} className="h-8">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {PALETTE.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setEditTypeColor(c)}
-                        className={`h-5 w-5 rounded-full transition-transform ${editTypeColor === c ? "ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900 scale-110" : ""}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2.5">
-                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t.name}</span>
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      data-testid="edit-type-button"
-                      onClick={() => {
-                        setEditingType(t.id);
-                        setEditTypeName(t.name);
-                        setEditTypeColor(t.color);
-                      }}
-                      className="h-8 w-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      data-testid="delete-type-button"
-                      onClick={() => deleteType(t)}
-                      className="h-8 w-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
+            <TypeItem
+              key={t.id}
+              type={t}
+              isEditing={editingType === t.id}
+              editName={editTypeName}
+              editColor={editTypeColor}
+              saving={saving}
+              onStartEdit={() => {
+                setEditingType(t.id);
+                setEditTypeName(t.name);
+                setEditTypeColor(t.color);
+              }}
+              onChangeName={setEditTypeName}
+              onChangeColor={setEditTypeColor}
+              onSave={() => saveTypeEdit(t)}
+              onCancel={() => setEditingType(null)}
+              onDelete={() => deleteType(t)}
+            />
           ))}
         </ul>
       </div>
@@ -242,63 +303,31 @@ export function ListManager({ types, team, isAdmin, onRefresh }) {
         )}
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
           {team.map((m) => (
-            <li key={m.id} data-testid="team-member-item" className="py-2.5">
-              {isAdmin && editingMember === m.id ? (
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-                  <Input data-testid="edit-member-name-input" value={editMemberName} onChange={(e) => setEditMemberName(e.target.value)} placeholder="Nome" className="h-8" />
-                  <Input data-testid="edit-member-email-input" type="email" value={editMemberEmail} onChange={(e) => setEditMemberEmail(e.target.value)} placeholder="Email" className="h-8" />
-                  <Input data-testid="edit-member-password-input" type="password" value={editMemberPassword} onChange={(e) => setEditMemberPassword(e.target.value)} placeholder="Nuova password (opzionale)" className="h-8" />
-                  <div className="flex gap-1">
-                    <Button size="sm" onClick={() => saveMemberEdit(m)} disabled={saving} data-testid="edit-member-save-button" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8">
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => { setEditingMember(null); setEditMemberPassword(""); }} className="h-8">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2.5">
-                    <span className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-semibold" style={{ backgroundColor: m.color }}>
-                      {m.name.charAt(0).toUpperCase()}
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        {m.name}
-                        {m.role === "admin" && <span className="ml-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">Admin</span>}
-                      </span>
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">{m.email}</span>
-                    </span>
-                  </span>
-                  {isAdmin && (
-                    <div className="flex gap-1">
-                      <button
-                        data-testid="edit-member-button"
-                        onClick={() => {
-                          setEditingMember(m.id);
-                          setEditMemberName(m.name);
-                          setEditMemberEmail(m.email);
-                          setEditMemberPassword("");
-                        }}
-                        className="h-8 w-8 rounded-md flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      {m.role !== "admin" && (
-                        <button
-                          data-testid="delete-member-button"
-                          onClick={() => deleteMember(m)}
-                          className="h-8 w-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </li>
+            <MemberItem
+              key={m.id}
+              member={m}
+              isAdmin={isAdmin}
+              isEditing={editingMember === m.id}
+              editName={editMemberName}
+              editEmail={editMemberEmail}
+              editPassword={editMemberPassword}
+              saving={saving}
+              onStartEdit={() => {
+                setEditingMember(m.id);
+                setEditMemberName(m.name);
+                setEditMemberEmail(m.email);
+                setEditMemberPassword("");
+              }}
+              onChangeName={setEditMemberName}
+              onChangeEmail={setEditMemberEmail}
+              onChangePassword={setEditMemberPassword}
+              onSave={() => saveMemberEdit(m)}
+              onCancel={() => {
+                setEditingMember(null);
+                setEditMemberPassword("");
+              }}
+              onDelete={() => deleteMember(m)}
+            />
           ))}
         </ul>
       </div>

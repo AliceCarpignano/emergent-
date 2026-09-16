@@ -10,6 +10,9 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recha
 import { formatEuro, formatData, STATI } from "@/constants";
 import { FileBarChart, Loader2 } from "lucide-react";
 
+const PIE_OUTER_RADIUS = 95;
+const PIE_INNER_RADIUS = 45;
+
 function defaultDates() {
   const oggi = new Date();
   const inizio = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
@@ -89,7 +92,7 @@ export function ReportModal({ open, onClose }) {
                 <div className="h-72" data-testid="report-pie-chart">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={pieData} dataKey="totale" nameKey="name" cx="50%" cy="50%" outerRadius={95} innerRadius={45} paddingAngle={3} strokeWidth={0}>
+                      <Pie data={pieData} dataKey="totale" nameKey="name" cx="50%" cy="50%" outerRadius={PIE_OUTER_RADIUS} innerRadius={PIE_INNER_RADIUS} paddingAngle={3} strokeWidth={0}>
                         {pieData.map((t) => (
                           <Cell key={t.name} fill={t.color} />
                         ))}

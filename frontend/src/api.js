@@ -5,6 +5,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
+const HTTP_UNAUTHORIZED = 401;
+
 let refreshing = null;
 
 api.interceptors.response.use(
@@ -14,7 +16,7 @@ api.interceptors.response.use(
     const isAuthCall = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"].some((p) =>
       original?.url?.includes(p)
     );
-    if (error.response?.status === 401 && original && !original._retried && !isAuthCall) {
+    if (error.response?.status === HTTP_UNAUTHORIZED && original && !original._retried && !isAuthCall) {
       original._retried = true;
       try {
         refreshing = refreshing || api.post("/auth/refresh").finally(() => { refreshing = null; });

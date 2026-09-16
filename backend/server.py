@@ -591,37 +591,46 @@ def current_week_bounds():
     return monday, monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
 
 
+def summarize_per_tipo(serialized: list) -> list:
+    per_tipo_map = {}
+    for job in serialized:
+        key = job["type_name"] or "Senza tipo"
+        entry = per_tipo_map.setdefault(key, {"name": key, "color": job["type_color"] or "#94A3B8", "totale": 0, "count": 0})
+        entry["totale"] += job["price"]
+        entry["count"] += 1
+    return sorted(per_tipo_map.values(), key=lambda x: x["totale"], reverse=True)
+
+
+async def build_invoice_rows(serialized: list) -> list:
+    invoices = []
+    for job in serialized:
+        if not job["invoiced"]:
+            continue
+        client_doc = await db.clients.find_one({"_id": ObjectId(job["client_id"])}) if job["client_id"] else None
+        invoices.append({
+            "job_title": job["title"],
+            "client_name": job["client_name"],
+            "piva": client_doc.get("piva") if client_doc else None,
+            "codice_fiscale": client_doc.get("codice_fiscale") if client_doc else None,
+            "indirizzo": client_doc.get("indirizzo") if client_doc else None,
+            "cap": client_doc.get("cap") if client_doc else None,
+            "citta": client_doc.get("citta") if client_doc else None,
+            "provincia": client_doc.get("provincia") if client_doc else None,
+            "pec": client_doc.get("pec") if client_doc else None,
+            "codice_sdi": client_doc.get("codice_sdi") if client_doc else None,
+            "invoice_number": job["invoice_number"],
+            "invoice_date": job["invoice_date"],
+            "price": job["price"],
+        })
+    return invoices
+
+
 async def create_weekly_report(source: str):
     monday, sunday = current_week_bounds()
     jobs = await db.jobs.find({"archived": True, "weekly_archived": {"$ne": True}}).sort("completed_at", 1).to_list(1000)
     if not jobs:
         return None
     serialized = [await serialize_job(j) for j in jobs]
-    per_tipo_map = {}
-    for j in serialized:
-        key = j["type_name"] or "Senza tipo"
-        entry = per_tipo_map.setdefault(key, {"name": key, "color": j["type_color"] or "#94A3B8", "totale": 0, "count": 0})
-        entry["totale"] += j["price"]
-        entry["count"] += 1
-    invoices = []
-    for j in serialized:
-        if j["invoiced"]:
-            client_doc = await db.clients.find_one({"_id": ObjectId(j["client_id"])}) if j["client_id"] else None
-            invoices.append({
-                "job_title": j["title"],
-                "client_name": j["client_name"],
-                "piva": client_doc.get("piva") if client_doc else None,
-                "codice_fiscale": client_doc.get("codice_fiscale") if client_doc else None,
-                "indirizzo": client_doc.get("indirizzo") if client_doc else None,
-                "cap": client_doc.get("cap") if client_doc else None,
-                "citta": client_doc.get("citta") if client_doc else None,
-                "provincia": client_doc.get("provincia") if client_doc else None,
-                "pec": client_doc.get("pec") if client_doc else None,
-                "codice_sdi": client_doc.get("codice_sdi") if client_doc else None,
-                "invoice_number": j["invoice_number"],
-                "invoice_date": j["invoice_date"],
-                "price": j["price"],
-            })
     doc = {
         "period_start": monday.isoformat(),
         "period_end": sunday.isoformat(),
@@ -630,9 +639,9 @@ async def create_weekly_report(source: str):
         "n_lavori": len(serialized),
         "totale": sum(j["price"] for j in serialized),
         "fatturato": sum(j["price"] for j in serialized if j["invoiced"]),
-        "per_tipo": sorted(per_tipo_map.values(), key=lambda x: x["totale"], reverse=True),
+        "per_tipo": summarize_per_tipo(serialized),
         "jobs": serialized,
-        "invoices": invoices,
+        "invoices": await build_invoice_rows(serialized),
     }
     result = await db.weekly_reports.insert_one(doc)
     await db.jobs.update_many({"_id": {"$in": [j["_id"] for j in jobs]}}, {"$set": {"weekly_archived": True}})
@@ -677,29 +686,34 @@ async def cron_weekly_archive(request: Request, background_tasks: BackgroundTask
     return {"status": "accepted"}
 
 
-@api_router.get("/weekly-reports/{report_id}/excel")
-async def download_weekly_report_excel(report_id: str, user: dict = Depends(get_current_user)):
-    from openpyxl import Workbook
-    from openpyxl.chart import PieChart, Reference
+def _styled_header(ws, headers: list) -> None:
     from openpyxl.styles import Font
 
-    report = await db.weekly_reports.find_one({"_id": to_object_id(report_id)})
-    if not report:
-        raise HTTPException(status_code=404, detail="Report non trovato")
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+
+def _autosize_columns(sheets) -> None:
+    for sheet in sheets:
+        for col in sheet.columns:
+            length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=10)
+            sheet.column_dimensions[col[0].column_letter].width = min(length + 4, 50)
+
+
+def build_report_workbook(report: dict) -> io.BytesIO:
+    from openpyxl import Workbook
+    from openpyxl.chart import PieChart, Reference
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Lavori"
-    ws.append(["Titolo", "Tipo", "Membro", "Completato il", "Prezzo (€)"])
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
+    _styled_header(ws, ["Titolo", "Tipo", "Membro", "Completato il", "Prezzo (€)"])
     for j in report["jobs"]:
         ws.append([j["title"], j["type_name"] or "Senza tipo", j["assignee_name"], (j["completed_at"] or "")[:10], j["price"]])
 
     ws2 = wb.create_sheet("Riepilogo Tipologie")
-    ws2.append(["Tipologia", "N. Lavori", "Totale (€)"])
-    for cell in ws2[1]:
-        cell.font = Font(bold=True)
+    _styled_header(ws2, ["Tipologia", "N. Lavori", "Totale (€)"])
     for t in report["per_tipo"]:
         ws2.append([t["name"], t["count"], t["totale"]])
     if report["per_tipo"]:
@@ -714,20 +728,23 @@ async def download_weekly_report_excel(report_id: str, user: dict = Depends(get_
         ws2.add_chart(pie, "E2")
 
     ws3 = wb.create_sheet("Fatturazione")
-    ws3.append(["Lavoro", "Cliente", "P.IVA", "Codice Fiscale", "Indirizzo", "CAP", "Città", "Provincia", "PEC", "Codice SDI", "N. Fattura", "Data Fattura", "Importo (€)"])
-    for cell in ws3[1]:
-        cell.font = Font(bold=True)
+    _styled_header(ws3, ["Lavoro", "Cliente", "P.IVA", "Codice Fiscale", "Indirizzo", "CAP", "Città", "Provincia", "PEC", "Codice SDI", "N. Fattura", "Data Fattura", "Importo (€)"])
     for inv in report["invoices"]:
         ws3.append([inv["job_title"], inv["client_name"], inv["piva"], inv["codice_fiscale"], inv["indirizzo"], inv["cap"], inv["citta"], inv["provincia"], inv["pec"], inv["codice_sdi"], inv["invoice_number"], inv["invoice_date"], inv["price"]])
 
-    for sheet in (ws, ws2, ws3):
-        for col in sheet.columns:
-            length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=10)
-            sheet.column_dimensions[col[0].column_letter].width = min(length + 4, 50)
-
+    _autosize_columns((ws, ws2, ws3))
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    return buf
+
+
+@api_router.get("/weekly-reports/{report_id}/excel")
+async def download_weekly_report_excel(report_id: str, user: dict = Depends(get_current_user)):
+    report = await db.weekly_reports.find_one({"_id": to_object_id(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report non trovato")
+    buf = build_report_workbook(report)
     filename = f"report_settimana_{report['period_start'][:10]}.xlsx"
     return StreamingResponse(
         buf,
@@ -738,11 +755,7 @@ async def download_weekly_report_excel(report_id: str, user: dict = Depends(get_
 
 # ---------- Startup: indexes + seed ----------
 
-async def seed_data():
-    await db.users.create_index("email", unique=True)
-    await db.login_attempts.create_index("identifier")
-
-    admin_email = os.environ["ADMIN_EMAIL"].lower()
+async def _seed_admin(admin_email: str) -> None:
     admin_password = os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": admin_email})
     if existing is None:
@@ -757,56 +770,79 @@ async def seed_data():
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
 
+
+async def _demote_legacy_admin(admin_email: str) -> None:
     old_admin_email = "iariamaarco@gmail.com"
-    if admin_email != old_admin_email:
-        old_admin = await db.users.find_one({"email": old_admin_email})
-        if old_admin and old_admin.get("role") == "admin":
-            await db.users.update_one({"email": old_admin_email}, {"$set": {"role": "member", "name": "Marco"}})
+    if admin_email == old_admin_email:
+        return
+    old_admin = await db.users.find_one({"email": old_admin_email})
+    if old_admin and old_admin.get("role") == "admin":
+        await db.users.update_one({"email": old_admin_email}, {"$set": {"role": "member", "name": "Marco"}})
 
-    if await db.work_types.count_documents({}) == 0:
-        await db.work_types.insert_many([
-            {"name": "Grafica", "color": "#EC4899"},
-            {"name": "Sviluppo Web", "color": "#4F46E5"},
-            {"name": "Contabilità", "color": "#F59E0B"},
-            {"name": "Confezionamento", "color": "#10B981"},
-            {"name": "Consulenza", "color": "#0EA5E9"},
-        ])
 
-    if await db.users.count_documents({"role": "member"}) == 0:
-        await db.users.insert_many([
-            {"email": "giulia.bianchi@team.it", "password_hash": hash_password("Team2026!"), "name": "Giulia Bianchi", "role": "member", "color": "#10B981", "created_at": datetime.now(timezone.utc)},
-            {"email": "alessandro.serra@team.it", "password_hash": hash_password("Team2026!"), "name": "Alessandro Serra", "role": "member", "color": "#F59E0B", "created_at": datetime.now(timezone.utc)},
-            {"email": "sofia.conti@team.it", "password_hash": hash_password("Team2026!"), "name": "Sofia Conti", "role": "member", "color": "#EC4899", "created_at": datetime.now(timezone.utc)},
-        ])
+async def _seed_work_types() -> None:
+    if await db.work_types.count_documents({}) > 0:
+        return
+    await db.work_types.insert_many([
+        {"name": "Grafica", "color": "#EC4899"},
+        {"name": "Sviluppo Web", "color": "#4F46E5"},
+        {"name": "Contabilità", "color": "#F59E0B"},
+        {"name": "Confezionamento", "color": "#10B981"},
+        {"name": "Consulenza", "color": "#0EA5E9"},
+    ])
 
-    if await db.jobs.count_documents({}) == 0:
-        types = {t["name"]: t["_id"] for t in await db.work_types.find({}).to_list(50)}
-        members = {u["email"]: u["_id"] for u in await db.users.find({}).to_list(50)}
-        admin = await db.users.find_one({"email": admin_email})
-        today = datetime.now(timezone.utc)
-        sample = [
-            {"title": "Restyling logo cliente Ferretti SRL", "type": "Grafica", "assignee": "giulia.bianchi@team.it", "days": 5, "price": 850.0, "status": "in_corso", "archived": False},
-            {"title": "Sito vetrina Ristorante Da Lucia", "type": "Sviluppo Web", "assignee": "alessandro.serra@team.it", "days": 12, "price": 2400.0, "status": "in_attesa", "archived": False},
-            {"title": "Bilancio trimestrale Studio Bianchi", "type": "Contabilità", "assignee": "sofia.conti@team.it", "days": 3, "price": 600.0, "status": "in_revisione", "archived": False},
-            {"title": "Catalogo prodotti Autunno 2026", "type": "Grafica", "assignee": "giulia.bianchi@team.it", "days": -10, "price": 1300.0, "status": "confezionato", "archived": True},
-            {"title": "Consulenza marketing Hotel Bellavista", "type": "Consulenza", "assignee": "alessandro.serra@team.it", "days": -20, "price": 1800.0, "status": "confezionato", "archived": True},
-        ]
-        docs = []
-        for s in sample:
-            due = today + timedelta(days=s["days"])
-            docs.append({
-                "title": s["title"],
-                "type_id": types[s["type"]],
-                "assignee_id": members[s["assignee"]],
-                "due_date": due.strftime("%Y-%m-%d"),
-                "price": s["price"],
-                "status": s["status"],
-                "archived": s["archived"],
-                "completed_at": today + timedelta(days=s["days"]) if s["archived"] else None,
-                "created_by": admin["_id"],
-                "created_at": today,
-            })
-        await db.jobs.insert_many(docs)
+
+async def _seed_members() -> None:
+    if await db.users.count_documents({"role": "member"}) > 0:
+        return
+    await db.users.insert_many([
+        {"email": "giulia.bianchi@team.it", "password_hash": hash_password("Team2026!"), "name": "Giulia Bianchi", "role": "member", "color": "#10B981", "created_at": datetime.now(timezone.utc)},
+        {"email": "alessandro.serra@team.it", "password_hash": hash_password("Team2026!"), "name": "Alessandro Serra", "role": "member", "color": "#F59E0B", "created_at": datetime.now(timezone.utc)},
+        {"email": "sofia.conti@team.it", "password_hash": hash_password("Team2026!"), "name": "Sofia Conti", "role": "member", "color": "#EC4899", "created_at": datetime.now(timezone.utc)},
+    ])
+
+
+async def _seed_jobs(admin_email: str) -> None:
+    if await db.jobs.count_documents({}) > 0:
+        return
+    types = {t["name"]: t["_id"] for t in await db.work_types.find({}).to_list(50)}
+    members = {u["email"]: u["_id"] for u in await db.users.find({}).to_list(50)}
+    admin = await db.users.find_one({"email": admin_email})
+    today = datetime.now(timezone.utc)
+    sample = [
+        {"title": "Restyling logo cliente Ferretti SRL", "type": "Grafica", "assignee": "giulia.bianchi@team.it", "days": 5, "price": 850.0, "status": "in_corso", "archived": False},
+        {"title": "Sito vetrina Ristorante Da Lucia", "type": "Sviluppo Web", "assignee": "alessandro.serra@team.it", "days": 12, "price": 2400.0, "status": "in_attesa", "archived": False},
+        {"title": "Bilancio trimestrale Studio Bianchi", "type": "Contabilità", "assignee": "sofia.conti@team.it", "days": 3, "price": 600.0, "status": "in_revisione", "archived": False},
+        {"title": "Catalogo prodotti Autunno 2026", "type": "Grafica", "assignee": "giulia.bianchi@team.it", "days": -10, "price": 1300.0, "status": "confezionato", "archived": True},
+        {"title": "Consulenza marketing Hotel Bellavista", "type": "Consulenza", "assignee": "alessandro.serra@team.it", "days": -20, "price": 1800.0, "status": "confezionato", "archived": True},
+    ]
+    docs = []
+    for s in sample:
+        due = today + timedelta(days=s["days"])
+        docs.append({
+            "title": s["title"],
+            "type_id": types[s["type"]],
+            "assignee_id": members[s["assignee"]],
+            "due_date": due.strftime("%Y-%m-%d"),
+            "price": s["price"],
+            "status": s["status"],
+            "archived": s["archived"],
+            "completed_at": today + timedelta(days=s["days"]) if s["archived"] else None,
+            "created_by": admin["_id"],
+            "created_at": today,
+        })
+    await db.jobs.insert_many(docs)
+
+
+async def seed_data():
+    await db.users.create_index("email", unique=True)
+    await db.login_attempts.create_index("identifier")
+    admin_email = os.environ["ADMIN_EMAIL"].lower()
+    await _seed_admin(admin_email)
+    await _demote_legacy_admin(admin_email)
+    await _seed_work_types()
+    await _seed_members()
+    await _seed_jobs(admin_email)
 
 
 @app.on_event("startup")

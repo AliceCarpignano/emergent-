@@ -22,6 +22,23 @@ const CLIENT_FIELDS = [
   { key: "codice_sdi", label: "Codice SDI", testid: "client-sdi-input" },
 ];
 
+function ClientFields({ client, onChange }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor="client-name">Ragione Sociale *</Label>
+        <Input id="client-name" data-testid="client-name-input" value={client.name} onChange={(e) => onChange("name", e.target.value)} placeholder="Es. Ferretti SRL" required />
+      </div>
+      {CLIENT_FIELDS.map((f) => (
+        <div key={f.key} className="space-y-2">
+          <Label htmlFor={`client-${f.key}`}>{f.label}</Label>
+          <Input id={`client-${f.key}`} data-testid={f.testid} value={client[f.key]} onChange={(e) => onChange(f.key, e.target.value)} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function InvoiceModal({ open, onClose, job, onSaved }) {
   const [clients, setClients] = useState([]);
   const [clientChoice, setClientChoice] = useState("new");
@@ -62,7 +79,7 @@ export function InvoiceModal({ open, onClose, job, onSaved }) {
     }
   };
 
-  const setField = (key) => (e) => setClient((c) => ({ ...c, [key]: e.target.value }));
+  const setField = (key, value) => setClient((c) => ({ ...c, [key]: value }));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -124,18 +141,7 @@ export function InvoiceModal({ open, onClose, job, onSaved }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="client-name">Ragione Sociale *</Label>
-              <Input id="client-name" data-testid="client-name-input" value={client.name} onChange={setField("name")} placeholder="Es. Ferretti SRL" required />
-            </div>
-            {CLIENT_FIELDS.map((f) => (
-              <div key={f.key} className="space-y-2">
-                <Label htmlFor={`client-${f.key}`}>{f.label}</Label>
-                <Input id={`client-${f.key}`} data-testid={f.testid} value={client[f.key]} onChange={setField(f.key)} />
-              </div>
-            ))}
-          </div>
+          <ClientFields client={client} onChange={setField} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
             <div className="space-y-2">
