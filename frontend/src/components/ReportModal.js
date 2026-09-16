@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api, { formatApiError } from "@/api";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,9 @@ export function ReportModal({ open, onClose }) {
             <FileBarChart className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             Report Lavori per Periodo
           </DialogTitle>
+          <DialogDescription>
+            Seleziona il periodo e genera il report con grafico e dettaglio lavori.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-end">

@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 7 — Post-refactor regression (structural refactor only, no new features). Backend: 45/45 pytest passing in 12.57s (Auth, Team, TeamUpdate, WorkTypes, WorkTypesUpdate, Jobs/JobsPartial/JobsExtra, Stats, ClientsAndInvoicing, Report, WeeklyReports w/ Excel structure & PieChart, CronAuth). Seed idempotent after `sudo supervisorctl restart backend`: log shows single 'Seed completato' with no errors; admin login still works and header still renders name 'Tipografia'. Frontend regression: login OK, dashboard renders stats-dashboard + Report Settimanali section with real data (fatturato 154 €, 15 lavori attivi, 3 completati), 'Guadagno per Tipologia' list; Tabella Lavori tab shows 8 sections (section-*/section-toggle-*), 15 work-table-row, 15 work-select-checkbox; row click opens dialog, checkbox click does NOT open dialog (stopPropagation preserved in WorkRow refactor); bulk elements present; work-status-dropdown / work-price-display / work-due-date-display / work-type-badge testids preserved. Completati tab: da-fatturare-row (3 jobs), completed-section-da-fatturare/fatturati with totals; invoice modal opens with all preserved testids (client-name/address/city/cap/province/piva/cf/pec/sdi + invoice-number/date/client-select/submit/cancel — matches ClientFields refactor). Impostazioni: 10 edit-type-* and 7 edit-member-* buttons (TypeItem/MemberItem extraction OK). ReportModal (open-report-button) opens, generates report with recharts pie sector rendered (2 sectors), report-from-input/report-to-input/report-generate-button testids present, download-report-button present. Logout OK -> redirect to /login.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Report/Invoice dialogs", "issues": ["Radix DialogContent missing aria-describedby — accessibility warning only, not blocking"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iteration_7.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Refactor preserved every existing data-testid used by tests and Playwright flows — no test file changes required.",
+    "AuthContext refactor (useCallback/useMemo) does not regress login/logout/refresh flow; me endpoint + refresh cookie tests still pass (test_refresh_without_cookie, test_refresh_with_refresh_cookie_only, test_me_with_invalid_access_token).",
+    "server.py helper extraction (summarize_per_tipo/build_invoice_rows/build_report_workbook/_styled_header/_autosize_columns) keeps Excel structure identical: 3 sheets + native PieChart still asserted green by TestWeeklyReports.",
+    "seed_data split (_seed_admin/_demote_legacy_admin/_seed_work_types/_seed_members/_seed_jobs) is idempotent on restart: verified 'Seed completato' emitted once per boot, admin name 'Tipografia' preserved, no duplicate work-types/members inserted.",
+    "GeneralWorkTable split into WorkRow/WorkSection preserves the row-click vs checkbox-click stopPropagation contract — verified: clicking work-select-checkbox does not open the edit dialog."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (45/45)", "frontend": "100%"},
+  "test_credentials": "Admin: tipideal@tipideal.it / Admin2026! (name: Tipografia) · Member: iariamaarco@gmail.com / Admin2026!",
+  "seed_data_creation": "No new seed data created in this iteration. Backend pytest suite still creates and tears down its own TEST_ users/jobs/clients per test class.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Post-refactor iteration fully green (backend 45/45, frontend regression on Dashboard/Tabella/Completati/Impostazioni/ReportModal/logout all pass). Preserved testids across refactor: nav-dashboard-tab, nav-table-tab, nav-completed-tab, nav-settings-tab, stats-dashboard, weekly-reports-section, weekly-report-row, open-report-button, report-modal, report-from-input, report-to-input, report-generate-button, download-report-button, generate-weekly-report-button, section-<id>, section-toggle-<id>, work-table-row, work-select-checkbox, work-status-dropdown, work-price-display, work-due-date-display, work-type-badge, edit-work-button, delete-work-button, add-work-button, filter-status-select, search-work-input, work-table-total, completed-section-da-fatturare, completed-section-fatturati, completed-total-da-fatturare, completed-total-fatturato, da-fatturare-row, invoice-job-button, invoice-modal, invoice-client-select, invoice-number-input, invoice-date-input, invoice-submit-button, invoice-cancel-button, client-name/address/city/cap/province/piva/cf/pec/sdi-input, edit-type-<id>, edit-member-<id>, theme-toggle-button, logout-button, main-app, login-email-input, login-password-input, login-submit-button. Backend logs show clean startup and Seed completato. No fix required.",
+  "rca of the issue": "N/A — pure refactor iteration, no regressions detected."
+}

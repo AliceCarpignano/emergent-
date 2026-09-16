@@ -46,6 +46,7 @@
 - Admin rinominato in "Tipografia" (15/06/2026)
 - Editing inline in Impostazioni (15/06/2026): nomi+colori tipi di lavoro editabili (PUT /api/work-types), nome/email/password membri editabili (PUT /api/team/{id}, admin-only, password opzionale)
 - Report settimanali (15/06/2026): cron piattaforma ogni lunedì 07:00 Europe/Rome (POST /api/cron/weekly-archive con WEBHOOK_CRON_SECRET, .emergent/crons.yml) + generazione manuale (POST /api/weekly-reports/generate); archiviazione lavori completati (weekly_archived), report con per_tipo + resoconto fatturazione completo; download Excel editabile (openpyxl, fogli Lavori/Riepilogo Tipologie/Fatturazione, grafico a torta nativo auto-aggiornante) via GET /api/weekly-reports/{id}/excel; sezione WeeklyReports in Dashboard
+- Refactoring code review (15/06/2026): backend — helper summarize_per_tipo/build_invoice_rows, build_report_workbook/_styled_header/_autosize_columns, seed_data scomposta in 5 funzioni; frontend — AuthContext useMemo/useCallback, costanti HTTP_UNAUTHORIZED e PIE_*_RADIUS, componenti estratti WorkRow/WorkSection (GeneralWorkTable), TypeItem/MemberItem (ListManager), ClientFields (InvoiceModal). Falsi positivi ignorati: `j` in generator expression, `is None` idiom, hook deps su import di modulo, console.warn in craco.config.js
 
 ## Backlog
 - P0: nessuno

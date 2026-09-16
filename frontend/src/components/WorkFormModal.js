@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/api";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +63,9 @@ export function WorkFormModal({ open, onClose, types, team, job, onSaved }) {
           <DialogTitle className="text-xl font-semibold">
             {job ? "Modifica Lavoro" : "Nuovo Lavoro"}
           </DialogTitle>
+          <DialogDescription>
+            {job ? "Aggiorna i dati del lavoro selezionato." : "Inserisci i dati del nuovo lavoro; i campi opzionali possono essere compilati in seguito."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-5">
           <div className="space-y-2">
